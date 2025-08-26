@@ -1,0 +1,28 @@
+# Jotform RAG System Environment Variables
+# ==========================================
+# Copy this file to .env and fill in your actual values
+
+# OpenAI API Configuration (Required for GPT-5 and fallback embedding)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Qdrant Cloud Configuration (optional - if using cloud instead of Docker)
+# QDRANT_API_KEY=your_qdrant_cloud_api_key_here
+# QDRANT_CLOUD_URL=https://your-cluster.qdrant.tech
+
+# HuggingFace Configuration (optional)
+# HUGGINGFACE_TOKEN=your_huggingface_token_here
+
+# System Configuration
+PYTHONPATH=${PYTHONPATH}:./src
+
+# Logging Configuration
+LOG_LEVEL=INFO
+
+# Performance Tuning
+OMP_NUM_THREADS=4
+MKL_NUM_THREADS=4
+TOKENIZERS_PARALLELISM=false
+
+# Development Settings
+ENVIRONMENT=development
+DEBUG=false

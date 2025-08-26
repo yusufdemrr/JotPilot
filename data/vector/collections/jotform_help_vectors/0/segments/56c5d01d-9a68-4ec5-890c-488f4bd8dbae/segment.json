@@ -1,0 +1,1 @@
+{"initial_version":21,"version":21,"config":{"vector_data":{"":{"size":768,"distance":"Cosine","storage_type":"Mmap","index":{"type":"plain","options":{}},"quantization_config":null}},"payload_storage_type":{"type":"mmap"}}}

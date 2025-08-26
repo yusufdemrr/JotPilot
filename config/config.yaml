@@ -1,0 +1,169 @@
+# Jotform RAG System Configuration
+# =================================
+# Unified configuration for Crawling, Chunking, and Embedding
+
+# Project Structure
+project:
+  name: "Jotform RAG System"
+  version: "1.0.0"
+  data_dir: "./data"
+  logs_dir: "./logs"
+  cache_dir: "./cache"
+
+# Crawling Configuration
+crawling:
+  base_url: "https://www.jotform.com/help/"
+  max_depth: 10
+  max_links_per_level: 100
+  output_file: "data/raw/jotform_help_content.txt"
+  delay_between_requests: 1.0
+  timeout: 30
+  user_agent: "JotformRAG/1.0"
+
+# Chunking Configuration
+chunking:
+  target_chunk_size: 400          # Target tokens per chunk
+  overlap_size: 50                # Overlap tokens between chunks
+
+  # Input/Output
+  input_file: "data/raw/jotform_help_content.txt"
+  output_file: "data/chunks/chunks.json"
+
+# Embedding Models Configuration
+models:
+  # Primary model (HuggingFace - Free)
+  primary:
+    provider: "huggingface"
+    model_name: "BAAI/bge-base-en-v1.5"
+    dimensions: 768
+    max_seq_length: 512
+    cache_dir: "./cache/models"
+    device: "cpu"  # auto, cpu, cuda, mps - Mac için CPU kullan
+    batch_size: 32
+    normalize_embeddings: true
+    
+  # Fallback model (OpenAI - Paid)
+  fallback:
+    provider: "openai"
+    model_name: "text-embedding-3-small"
+    dimensions: 1536
+    api_key_env: "OPENAI_API_KEY"
+    max_tokens: 8192
+    batch_size: 100
+    
+  # Alternative models (for experimentation)
+  alternatives:
+    - name: "all-MiniLM-L6-v2"
+      provider: "huggingface"
+      dimensions: 384
+      speed: "fast"
+      quality: "good"
+    - name: "all-mpnet-base-v2"
+      provider: "huggingface"
+      dimensions: 768
+      speed: "medium"
+      quality: "better"
+
+# Qdrant Vector Database Configuration
+qdrant:
+  connection:
+    # Local Docker setup
+    host: "localhost"
+    port: 6333
+    prefer_grpc: false
+    https: false
+    timeout: 60
+    
+    # Cloud setup (alternative)
+    # cloud_url: "https://your-cluster.qdrant.tech"
+    # api_key_env: "QDRANT_API_KEY"
+    
+  # Collection settings
+  collection:
+    name: "jotform_help_vectors"
+    vector_size: 768  # Match primary model dimensions
+    distance: "Cosine"  # Cosine, Dot, Euclid
+    
+    # Advanced settings
+    shard_number: 1
+    replication_factor: 1
+    write_consistency_factor: 1
+    
+    # Optimization settings (basitleştirildi)
+    # optimizers_config:
+    #   deleted_threshold: 0.2
+    #   vacuum_min_vector_number: 1000
+
+# Processing Configuration
+processing:
+  # Batch processing
+  batch_size: 50
+  
+  # Progress tracking
+  show_progress: true
+
+# LLM Configuration (GPT-5 Integration)
+llm:
+  provider: "openai"
+  model: "gpt-4o"  # Use gpt-4o for now, will update to gpt-5 when available
+  api_key_env: "OPENAI_API_KEY"
+  temperature: 0.7
+  max_tokens: 2000
+  timeout: 60
+  
+  # RAG-specific settings
+  rag:
+    search_limit: 5           # How many chunks to retrieve
+    context_window: 4000      # Max context tokens
+    relevance_threshold: 0.7  # Min similarity score
+    include_metadata: true    # Include chunk metadata in context
+    
+  # System prompts
+  prompts:
+    system: |
+      You are a helpful Jotform assistant. Use the provided context to answer questions about Jotform features, form creation, and help topics.
+      Be accurate, helpful, and concise. If you don't know something based on the context, say so.
+    
+    rag_template: |
+      Context from Jotform Help:
+      {context}
+      
+      User Question: {question}
+      
+      Please answer based on the context above:
+
+# API Configuration (Web Interface)
+api:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins: ["*"]
+  title: "Jotform RAG API"
+  description: "AI-powered Jotform help and form creation assistant"
+  version: "1.0.0"
+  
+  # Rate limiting
+  rate_limit:
+    requests_per_minute: 60
+    burst_size: 10
+
+# Chat Configuration
+chat:
+  max_history: 10           # Chat history limit
+  session_timeout: 3600     # 1 hour in seconds
+  memory_type: "buffer"     # buffer, summary, or vector
+  
+# Development/Debug Settings
+debug:
+  dry_run: false
+  limit_chunks: null  # null for all, number to limit
+  verbose_logging: false
+  save_intermediate_results: false
+  profile_performance: false
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_pattern: "./logs/{module}_{timestamp}.log"
+  max_file_size_mb: 10
+  backup_count: 5

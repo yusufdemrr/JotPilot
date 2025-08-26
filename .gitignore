@@ -1,0 +1,35 @@
+# .gitignore
+
+# Python cache dosyaları
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+# Sanal Ortam (Virtual Environment)
+# Eğer projenin içinde "venv" veya "agent" gibi bir sanal ortam oluşturursanız,
+# o klasörün adını buraya yazın.
+venv/
+env/
+
+# Hassas Bilgiler
+# API anahtarları gibi gizli bilgileri içeren .env dosyasını ASLA GİT'e gönderme!
+.env
+
+# Veritabanı ve Veri Dosyaları
+# Bu dosyalar script'ler tarafından üretilir ve genellikle büyüktür.
+# Bunları depoya eklemek yerine, README dosyasında nasıl oluşturulacaklarını anlatırız.
+data/raw/
+data/chunks/
+data/vectors/
+
+# Log Dosyaları
+logs/
+*.log
+
+# İşletim Sistemi ve IDE'ye özel dosyalar
+.DS_Store
+.vscode/
+.idea/
+
+# Bağımlılıklar (requirements.txt ile yeniden oluşturulabilir)
+/site-packages/

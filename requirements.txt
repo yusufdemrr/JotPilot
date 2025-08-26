@@ -1,0 +1,70 @@
+# Jotform RAG System Dependencies
+# ===============================
+# Unified requirements for Crawling, Chunking, Embedding, and LLM Agent
+
+# Web Crawling & HTML Processing
+crawl4ai>=0.3.0                # Web scraping and crawling
+playwright>=1.40.0             # Browser automation (unified version)
+beautifulsoup4>=4.12.0         # HTML parsing (unified version)
+selenium>=4.15.0              # Web automation
+lxml>=4.9.0                   # XML/HTML processing
+requests>=2.31.0               # HTTP requests
+aiohttp>=3.9.0                 # Async HTTP client
+
+# Text Processing & Chunking
+tiktoken>=0.6.0                # Token counting (unified version - latest)
+nltk>=3.8.0                    # Natural language processing
+spacy>=3.7.0                   # Advanced NLP
+textstat>=0.7.0                # Text statistics
+
+# Machine Learning & Embeddings
+sentence-transformers>=2.2.2   # HuggingFace embeddings
+torch>=2.0.0                   # PyTorch backend
+transformers>=4.30.0           # Transformer models
+accelerate>=0.20.0             # Model acceleration
+numpy>=1.24.0                  # Numerical operations
+scikit-learn>=1.3.0            # ML utilities
+
+# Vector Database
+qdrant-client>=1.6.0           # Qdrant Python client
+
+# LLM & RAG Integration
+openai>=1.12.0                # OpenAI API client (unified version - latest)
+langchain>=0.3.0              # LLM framework
+langchain-openai>=0.2.0       # OpenAI integration
+langchain-community>=0.3.0    # Community tools
+langchain-core>=0.3.0         # Core components
+
+# Configuration & Utilities
+pyyaml>=6.0                    # YAML configuration
+python-dotenv>=1.0.0           # Environment variables (unified version)
+tqdm>=4.65.0                   # Progress bars
+click>=8.1.0                   # CLI framework
+rich>=13.0.0                   # Rich terminal output
+
+# Data Processing
+pandas>=2.0.0                  # Data manipulation
+jsonlines>=4.0.0               # JSON Lines format
+orjson>=3.9.0                  # Fast JSON parsing
+
+# Development & Testing
+pytest>=7.4.0                 # Testing framework
+black>=23.0.0                  # Code formatting
+flake8>=6.0.0                  # Linting
+mypy>=1.5.0                    # Type checking
+
+# Production & API (Optional)
+fastapi>=0.104.0              # Web API framework
+uvicorn>=0.24.0               # ASGI server
+gunicorn>=21.2.0              # WSGI server
+websockets>=12.0              # Real-time chat
+python-multipart>=0.0.6      # File uploads
+jinja2>=3.1.0                 # Template engine
+
+# Optional UI
+streamlit>=1.30.0             # Quick web UI
+gradio>=4.0.0                 # Alternative UI framework
+
+# Optional GPU Support
+# torch-audio>=2.0.0           # Audio processing (if needed)
+# torchvision>=0.15.0          # Vision processing (if needed)
