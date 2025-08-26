@@ -18,9 +18,7 @@ env/
 # Veritabanı ve Veri Dosyaları
 # Bu dosyalar script'ler tarafından üretilir ve genellikle büyüktür.
 # Bunları depoya eklemek yerine, README dosyasında nasıl oluşturulacaklarını anlatırız.
-data/raw/
-data/chunks/
-data/vectors/
+data
 
 # Log Dosyaları
 logs/
