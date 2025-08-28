@@ -1,0 +1,150 @@
+# src/web_interaction/browser_manager.py
+
+import asyncio
+from typing import Optional
+from playwright.async_api import async_playwright, Playwright, Browser, Page
+
+class BrowserManager:
+    """
+    A clean wrapper for Playwright to manage browser interactions asynchronously.
+    This class is designed as an asynchronous context manager to ensure
+    that browser resources are properly launched and closed.
+    
+    Usage:
+        async with BrowserManager() as browser:
+            await browser.goto("https://example.com")
+            html = await browser.get_html()
+            await browser.click("#some_button")
+    """
+    
+    def __init__(self, headless: bool = True):
+        # Store the headless option to be used when launching the browser.
+        self.headless = headless
+        # Initialize instance variables to None. They will be set in launch().
+        # We use lazy initialization to avoid starting Playwright until it's needed.
+        self.playwright: Optional[Playwright] = None
+        self.browser: Optional[Browser] = None
+        self.page: Optional[Page] = None
+
+    async def __aenter__(self):
+        """
+        Asynchronous context manager entry point.
+        This method is called when entering an `async with` block.
+        It launches the browser and returns the instance of the manager.
+        """
+        await self.launch()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """
+        Asynchronous context manager exit point.
+        This method is called when exiting the `async with` block.
+        It ensures that the browser is always closed, even if errors occur.
+        """
+        await self.close()
+
+    async def launch(self):
+        """
+        Starts the Playwright instance and launches a new browser page.
+        This is the core setup method.
+        """
+        # Start Playwright
+        self.playwright = await async_playwright().start()
+        # Launch a Chromium browser instance using the headless option passed during initialization.
+        self.browser = await self.playwright.chromium.launch(headless=self.headless)
+        # Create a new page (tab) in the browser.
+        self.page = await self.browser.new_page()
+        print("✅ BrowserManager: Playwright started and browser launched.")
+
+    async def close(self):
+        """
+        Gracefully closes the browser page and the Playwright instance.
+        """
+        if self.page and not self.page.is_closed():
+            await self.page.close()
+        if self.browser and self.browser.is_connected():
+            await self.browser.close()
+        if self.playwright:
+            await self.playwright.stop()
+        print("✅ BrowserManager: Browser and Playwright instance closed.")
+
+    async def goto(self, url: str):
+        """
+        Navigates the browser page to the specified URL.
+        
+        Args:
+            url (str): The URL to navigate to.
+        """
+        if not self.page:
+            raise ConnectionError("Browser is not launched. Call launch() first.")
+        
+        print(f"🌍 Navigating to {url}...")
+        # 'wait_until="domcontentloaded"' waits for the initial HTML document to be loaded and parsed.
+        await self.page.goto(url, wait_until="domcontentloaded")
+        print(f"👍 Navigated successfully.")
+
+    async def get_html(self) -> str:
+        """
+        Retrieves the full HTML content of the current page.
+
+        Returns:
+            str: The HTML content of the page.
+        """
+        if not self.page:
+            raise ConnectionError("Browser is not launched.")
+        
+        return await self.page.content()
+
+    async def click(self, selector: str):
+        """
+        Clicks an element on the page identified by its CSS selector.
+
+        Args:
+            selector (str): The CSS selector of the element to click.
+        """
+        if not self.page:
+            raise ConnectionError("Browser is not launched.")
+            
+        print(f"🖱️ Clicking element with selector: {selector}")
+        await self.page.click(selector, timeout=5000) # 5 second timeout
+        # Wait for the page to potentially reload or change after the click
+        await self.page.wait_for_load_state("domcontentloaded")
+        print("👍 Click successful.")
+
+    async def type(self, selector: str, text: str):
+        """
+        Types the given text into an element identified by its CSS selector.
+        Uses `fill` which is often faster and more reliable than typing character by character.
+
+        Args:
+            selector (str): The CSS selector of the input element.
+            text (str): The text to type into the element.
+        """
+        if not self.page:
+            raise ConnectionError("Browser is not launched.")
+
+        print(f"⌨️ Typing '{text}' into element: {selector}")
+        await self.page.fill(selector, text, timeout=5000)
+        print("👍 Typing successful.")
+
+async def _test_run():
+    """A simple test function to demonstrate BrowserManager usage."""
+    print("--- Testing BrowserManager ---")
+    async with BrowserManager() as browser:
+        await browser.goto("https://www.jotform.com/")
+        
+        # 'Login' yazan ve link olan elementi bulup tıkla
+        # Bu CSS selector'ı, metni 'Login' olan bir <a> etiketini hedefler.
+        await browser.click("a:has-text('Login')")
+        
+        print("Login butonuna tıklandı. Yeni sayfanın HTML'i alınıyor...")
+        html = await browser.get_html()
+        print(f"Login sayfasından {len(html)} karakter içerik alındı.")
+
+    print("--- Test complete ---")
+
+if __name__ == "__main__":
+    # To run this test, you first need to install playwright:
+    # pip install playwright
+    # playwright install
+    asyncio.run(_test_run())

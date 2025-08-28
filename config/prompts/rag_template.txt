@@ -1,0 +1,6 @@
+Context from Jotform Help:
+{context}
+
+User Question: {question}
+
+Please answer based on the context above:

@@ -1,17 +1,20 @@
 # Jotform AI RAG Agent
 
-This project is a RAG (Retrieval-Augmented Generation) based AI agent, built with LangGraph, that answers user questions about Jotform using its help documentation as a knowledge base.
+This project is an AI agent designed to interact with the Jotform website. It combines a **RAG (Retrieval-Augmented Generation)** knowledge base with a **web automation agent** built on LangGraph to understand user objectives and execute tasks in a browser.
 
 ---
 
 ## 🚀 Features
 
--   **Data Collection:** Automatically scrapes data from Jotform's help pages using `crawler.py`.
--   **Data Processing:** intelligently splits the raw text into semantically meaningful chunks optimized for RAG using `chunker.py`.
--   **Vector Database:** Converts text chunks into vector embeddings and stores them in a **Qdrant** database using `embedding_service.py`.
--   **Intelligent Chat:** Generates context-aware answers to user questions by retrieving relevant information from Qdrant and feeding it to an LLM.
--   **Scalable Architecture:** The entire chat flow is built on **LangGraph**, allowing for easy integration of new tools and capabilities in the future.
--   **Memory:** Remembers the conversation history to provide a more natural and coherent chat experience.
+-   **RAG Knowledge Base:**
+    -   **Data Collection:** Automatically scrapes data from Jotform's help pages using `crawler.py`.
+    -   **Data Processing:** Intelligently splits raw text into semantically meaningful chunks using `chunker.py`.
+    -   **Vector Database:** Converts text chunks into vector embeddings and stores them in a **Qdrant** database.
+-   **Action Agent Core:**
+    -   **Web Perception:** Uses `Playwright` via a `BrowserManager` to see and analyze the content of live web pages.
+    -   **Decision Engine:** The core logic is built on **LangGraph**, allowing the agent to create multi-step plans, reason about its actions, and decide on the next best step.
+    -   **Tool Use:** The architecture is built to use "tools." The RAG system now functions as a `rag_tool` that the main agent can consult when it needs theoretical knowledge.
+-   **Developer Mode:** Includes a `run_developer_mode.py` script to visually test the agent's actions in a real browser window.
 
 ---
 
@@ -68,11 +71,11 @@ Follow these steps to set up and run the project on your local machine.
 
 ## 🚀 Usage
 
-Once the installation is complete, you can run the agent. The process has two main phases.
+The project has two main phases: building the knowledge base and running the agent.
 
 ### Phase 1: Build the Knowledge Base (One-time setup)
 
-These steps collect the documentation, process it, and load it into the agent's memory (Qdrant).
+These steps collect the documentation, process it, and load it into the agent's memory (Qdrant). This only needs to be done once or when you want to update the knowledge base.
 
 a. **Crawl the Data:**
 ```bash
@@ -89,10 +92,22 @@ c. **Embed and Store the Data:**
 python -m src.embedding.embedding_service
 ```
 
-### Phase 2: Run the Chatbot
+### Phase 2: Run the Agent
 
-After building the knowledge base, you can start interacting with the agent.
+You can run the agent in two different modes:
+
+#### a) Action Agent (Developer Mode) - *Main Mode*
+
+This is the primary way to run the project. It will open a browser window and execute tasks based on the objective defined in the script.
+
 ```bash
-python -m src.llm.chatbot_langgraph
+python run_developer_mode.py
 ```
-You will see a prompt in your terminal. Start asking your questions about Jotform! Type `exit` to quit the session.
+You will see the agent's thought process in the terminal and its actions in the browser window. Press `Enter` to proceed with each step.
+
+#### b) RAG Chatbot (Demo Mode)
+
+This runs the original, simple RAG chatbot for question-answering only, without any web automation.
+
+```bash
+python -m src.llm.chatbot

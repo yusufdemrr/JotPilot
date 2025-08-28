@@ -42,8 +42,23 @@ class LangGraphChatbot:
         print(f"'{model_name}' embedding modeli yükleniyor...")
         self.embedding_model = SentenceTransformer(model_name)
         
-        self.system_prompt = self.config['llm']['prompts']['system']
-        self.rag_template = self.config['llm']['prompts']['rag_template']
+        # Load prompt templates from the file paths
+        try:
+            system_prompt_path = self.config['llm']['prompts']['rag_system_prompt_path']
+            rag_template_path = self.config['llm']['prompts']['rag_template_path']
+
+            with open(system_prompt_path, 'r', encoding='utf-8') as f:
+                self.system_prompt = f.read()
+
+            with open(rag_template_path, 'r', encoding='utf-8') as f:
+                self.rag_template = f.read()
+        
+        except FileNotFoundError as e:
+            print(f"❌ ERROR: Prompt file not found: {e}")
+            raise
+        except KeyError as e:
+            print(f"❌ ERROR: Prompt path key not found in config.yaml: {e}")
+            raise
         
         # --- Adım 2: LangGraph Akış Şemasını Oluştur ---
         workflow = StateGraph(GraphState)
