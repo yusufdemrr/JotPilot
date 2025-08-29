@@ -133,10 +133,28 @@ class ActionAgent:
                 json_str = json_str[7:-4].strip()
             
             try:
-                # 3. Parse the JSON part
                 parsed_json = json.loads(json_str)
+                
+                # --- YENİ: agent_id'yi gerçek seçiciye dönüştür ---
+                # 'current_page_content' string değil, dictionary listesi olmalı
+                page_elements = json.loads(state['current_page_content'])
+                
+                # agent_id'leri ve seçicileri hızlı erişim için bir haritaya koy
+                element_map = {el['agent_id']: el['selector'] for el in page_elements}
+
+                for action in parsed_json.get("actions", []):
+                    if "target_agent_id" in action:
+                        agent_id = action["target_agent_id"]
+                        # Gerçek seçiciyi haritadan bul ve eyleme ekle
+                        if agent_id in element_map:
+                            action["selector"] = element_map[agent_id]
+                        else:
+                            print(f"❌ ERROR: LLM returned an invalid agent_id: {agent_id}")
+                            action["type"] = "FAIL"
+                            action["message"] = f"Could not find element with id {agent_id}."
+                
                 final_response_payload = parsed_json
-                print(f"✅ LLM decided on {len(parsed_json.get('actions', []))} action(s).")
+                final_response_payload["full_thought_process"] = thought_process
 
             except json.JSONDecodeError:
                 print(f"❌ ERROR: LLM returned a non-JSON response part: {json_str}")

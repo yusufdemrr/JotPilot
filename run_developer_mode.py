@@ -1,5 +1,3 @@
-# GÜNCELLENMİŞ run_developer_mode.py (Gerçek Eylem Modu)
-
 import asyncio
 import sys
 import os
@@ -23,7 +21,7 @@ async def main():
     dotenv_path = 'config/.env'
     load_dotenv(dotenv_path=dotenv_path)
     
-    objective = "Create a new form from scratch, name it 'My First form'."
+    objective = "Create a new ai agent from scratch, name it 'My First agent'."
     start_url = "https://www.jotform.com/workspace/"
     
     agent_brain = ActionAgent()
@@ -39,11 +37,13 @@ async def main():
         
         for turn in range(1, max_turns + 1):
             print(f"\n==================== TURN {turn} ====================")
-            
+
+            # --- SEE and PROCESS SIGHT ---        
             print("👀 Agent is 'seeing' the page...")
             raw_html = await browser.get_html()
             simplified_html = page_analyzer.analyze(raw_html)
-            
+
+            # --- THINK ---
             print("🧠 Agent is 'thinking' about the next action...")
             response_json = agent_brain.invoke(
                 objective=objective,
@@ -54,6 +54,7 @@ async def main():
             # Bir sonraki tur için cevabı sıfırla
             user_response_for_next_turn = None
 
+            # --- OBSERVE ---
             thought_process = response_json.get("full_thought_process", "No thoughts provided.")
             actions_to_take = response_json.get("actions", [])
             
@@ -69,7 +70,7 @@ async def main():
                 print("\n🏁 Agent did not decide on an action. Exiting loop.")
                 break
             
-            # --- YENİ: Eylem bloğunu güncelle ---
+            # --- DECIDE and PREPARE FOR ACTION ---
             first_action = actions_to_take[0]
             action_type = first_action.get("type")
 
@@ -103,6 +104,21 @@ async def main():
                     await browser.type(selector, value)
                 
                 await asyncio.sleep(2)
+
+            # #! --- GÜNCELLENMİŞ EYLEM BLOĞU --- Aynı anda 2 veya daha fazla eylem sorununa çözüm
+            # # The script now executes the action(s) in the bundle and then
+            # # WILL LOOP BACK to re-see and re-think.
+            # print("\n🚀 Executing actions...")
+            # for action in actions_to_take:
+            #     # Eylemi gerçekleştir
+            #     if action.get("type") == "CLICK":
+            #         await browser.click(action.get("selector"))
+            #     elif action.get("type") == "TYPE":
+            #         await browser.type(action.get("selector"), action.get("value"))
+                
+            #     # Her eylemden sonra kısa bir bekleme süresi, sayfanın oturması için iyidir.
+            #     await asyncio.sleep(2)
+
 
             previous_actions.extend(actions_to_take)
 

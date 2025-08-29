@@ -105,7 +105,10 @@ processing:
 # LLM Configuration (GPT-5 Integration)
 llm:
   provider: "openai"
-  model: "gpt-4o"  # Use gpt-4o for now, will update to gpt-5 when available
+  # model: "gpt-4o"  # Use gpt-4o for now, will update to gpt-5 when available
+  model: "gpt-4o-mini"  # Placeholder for future use
+  # model: "gpt-5"  # Placeholder for future use
+  # model: "gpt5-nano"  # Placeholder for future use
   api_key_env: "OPENAI_API_KEY"
   temperature: 0.7
   max_tokens: 2000
