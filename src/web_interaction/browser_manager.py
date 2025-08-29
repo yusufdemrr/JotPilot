@@ -96,20 +96,45 @@ class BrowserManager:
         return await self.page.content()
 
     async def click(self, selector: str):
-        """
-        Clicks an element on the page identified by its CSS selector.
-
-        Args:
-            selector (str): The CSS selector of the element to click.
-        """
-        if not self.page:
-            raise ConnectionError("Browser is not launched.")
+            """
+            Intelligently clicks an element. It first checks if the element
+            is a link that opens in a new tab (`target="_blank"`).
+            It handles both new-tab and same-tab navigations robustly.
+            """
+            if not self.page:
+                raise ConnectionError("Browser is not launched.")
+                
+            print(f"🖱️ Clicking element with selector: {selector}")
             
-        print(f"🖱️ Clicking element with selector: {selector}")
-        await self.page.click(selector, timeout=5000) # 5 second timeout
-        # Wait for the page to potentially reload or change after the click
-        await self.page.wait_for_load_state("domcontentloaded")
-        print("👍 Click successful.")
+            try:
+                target_element = self.page.locator(selector).first
+                await target_element.wait_for(state="visible", timeout=10000)
+
+                # --- YENİ VE AKILLI MANTIK ---
+                # Adım 1: Elementin yeni bir sekmede açılıp açılmayacağını kontrol et.
+                target_attribute = await target_element.get_attribute('target')
+
+                if target_attribute == '_blank':
+                    # --- SENARYO A: YENİ SEKME AÇILACAK ---
+                    print("...Element is a link that opens a new tab. Expecting new page...")
+                    async with self.page.context.expect_page(timeout=5000) as new_page_info:
+                        await target_element.click()
+                    
+                    new_page = await new_page_info.value
+                    self.page = new_page # Fokusumuzu yeni sayfaya geçir
+                    print("📄 New page detected. Switched focus.")
+                else:
+                    # --- SENARYO B: MEVCUT SAYFA DEĞİŞECEK ---
+                    print("...Element navigates in the current tab. Clicking normally...")
+                    await target_element.click()
+
+                # Her iki senaryodan sonra da, aktif olan sayfanın yüklenmesini bekle.
+                await self.page.wait_for_load_state("domcontentloaded", timeout=10000)
+                print("✅ Click successful and page is ready.")
+
+            except Exception as e:
+                print(f"❌ ERROR during click on '{selector}': {e}")
+                raise
 
     async def type(self, selector: str, text: str):
         """
