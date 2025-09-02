@@ -1,8 +1,9 @@
 # src/web_interaction/browser_manager.py
 
 import asyncio
-from typing import Optional
+from typing import Optional, List
 from playwright.async_api import async_playwright, Playwright, Browser, Page
+
 
 class BrowserManager:
     """
@@ -151,6 +152,35 @@ class BrowserManager:
         print(f"⌨️ Typing '{text}' into element: {selector}")
         await self.page.fill(selector, text, timeout=5000)
         print("👍 Typing successful.")
+
+    # Frontend'in yapacağı gibi, sayfadaki tüm görünür etkileşimli elementlerin outerHTML'ini al.
+    async def get_visible_elements_html(self) -> List[str]:
+        """
+        Finds all visible interactive elements on the current page and
+        returns a list of their outerHTML strings.
+        This simulates what the frontend extension will do.
+        """
+        if not self.page:
+            raise ConnectionError("Browser is not launched.")
+
+        # This list should be the same as the one in PageAnalyzer
+        interactive_selectors = [
+            'a[href]', 'button', 'input:not([type=hidden])',
+            'textarea', 'select', '[role=button]', '[role=link]'
+        ]
+        combined_selector = ', '.join(interactive_selectors)
+        
+        element_handles = await self.page.locator(combined_selector).all()
+        
+        visible_elements_html = []
+        for element in element_handles:
+            if await element.is_visible():
+                # evaluate is a way to run JavaScript on the element.
+                # 'e => e.outerHTML' gets the full HTML of the element itself.
+                html = await element.evaluate('e => e.outerHTML')
+                visible_elements_html.append(html)
+        
+        return visible_elements_html
 
 async def _test_run():
     """A simple test function to demonstrate BrowserManager usage."""

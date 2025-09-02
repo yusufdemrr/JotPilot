@@ -11,6 +11,7 @@ from langchain_core.messages import BaseMessage
 # Import our existing tools and clients
 from src.llm.openai_client import OpenAIClient
 from src.tools.rag_tool import rag_tool
+from src.web_interaction.page_analyzer import PageAnalyzer
 
 class AgentState(TypedDict):
     """
@@ -18,12 +19,14 @@ class AgentState(TypedDict):
     This dictionary is passed between nodes, each node updating parts of it.
     """
     objective: str                  # The main goal from the user.
-    current_page_content: str       # The simplified HTML from PageAnalyzer.
+    visible_elements_html: List[str]      # Raw HTML strings of visible elements on the page.
+    analyzed_content: List[Dict]    # The structured analysis of the page content.
     previous_actions: List[Dict]    # A history of actions taken so far.
     rag_context: str                # Relevant info from our knowledge base (fetched by rag_tool).
     final_response: Optional[Dict]  # The final JSON response to be sent to the frontend.
     chat_history: List[BaseMessage] # Not used in this version, but good for future memory.
     user_response: Optional[str]    # Kullanıcıdan gelen cevabı tutar.
+    error_feedback: Optional[str] # Yeni state: LLM'e geri bildirim için
 
 class ActionAgent:
     """
@@ -40,8 +43,8 @@ class ActionAgent:
         with open(config_path, 'r', encoding='utf-8') as f:
             self.config = yaml.safe_load(f)
 
+        self.page_analyzer = PageAnalyzer()
         self.openai_client = OpenAIClient(self.config['llm'])
-        self.tools = [rag_tool] # A list of tools the agent can use. For now, just one.
         
         # Load the powerful system prompt for the action agent
         action_prompt_path = self.config['llm']['prompts']['action_system_prompt_path']
@@ -52,21 +55,42 @@ class ActionAgent:
         workflow = StateGraph(AgentState)
 
         # Add the nodes to the graph
+        workflow.add_node("analyze_page", self.analyze_page)
         workflow.add_node("retrieve_rag_context", self.retrieve_rag_context)
         workflow.add_node("plan_and_think", self.plan_and_think)
+        workflow.add_node("validate_decision", self.validate_decision)
 
         # Define the entry point of the graph
-        workflow.set_entry_point("retrieve_rag_context")
+        workflow.set_entry_point("analyze_page")
 
         # Define the connections (edges) between the nodes
+        workflow.add_edge("analyze_page", "retrieve_rag_context")
         workflow.add_edge("retrieve_rag_context", "plan_and_think")
-        workflow.add_edge("plan_and_think", END) # The 'plan_and_think' node is the last step in a single turn.
+        workflow.add_edge("plan_and_think", "validate_decision")
+
+
+        # Koşullu kenarı tanımla: Karar geçerli mi, değil mi?
+        workflow.add_conditional_edges(
+            "validate_decision",
+            self.check_decision_validity,
+            {
+                "valid": END, # Karar geçerliyse bitir
+                "invalid": "plan_and_think" # Geçersizse, hata ile tekrar düşün
+            }
+        )
 
         # Compile the graph into a runnable object
         self.graph = workflow.compile()
         print("✅ ActionAgent initialized successfully with a compiled LangGraph.")
 
-    # --- Node 1: Retrieve Context from the Knowledge Base ---
+    # --- Node 1: Analyze the Current Page Content ---
+    def analyze_page(self, state: AgentState) -> Dict:
+        """Node 1: Receives raw HTML list and analyzes it."""
+        print("--- Node: analyze_page ---")
+        analyzed_content = self.page_analyzer.analyze(state["visible_elements_html"])
+        return {"analyzed_content": analyzed_content}
+
+    # --- Node 2: Retrieve Context from the Knowledge Base ---
     def retrieve_rag_context(self, state: AgentState) -> Dict:
         """
         This node uses the RAG tool to fetch theoretical knowledge based on the user's objective.
@@ -80,15 +104,23 @@ class ActionAgent:
         # Return a dictionary to update the state
         return {"rag_context": rag_response}
 
-    # --- Node 2: The Main Brain that Plans the Next Action ---
+    # --- Node 3: The Main Brain that Plans the Next Action ---
     def plan_and_think(self, state: AgentState) -> Dict:
         """
         This is the core reasoning node. It gathers all information, constructs a detailed prompt,
         and asks the LLM to decide on the next action(s).
         """
         print("--- Node: plan_and_think ---")
+
+        # Step 1: Prepare the webpage view for the prompt
+        analyzed_elements = state['analyzed_content']
+        webpage_view_for_prompt = "\n".join([
+            f"[index: {el.get('index')}, tag: '{el.get('tag')}', text: '{el.get('text', '')[:100]}...']"
+            for el in analyzed_elements
+        ])
         
-        # Prepare the prompt content by formatting all available information
+        # Step 2: Prepare the full prompt with ALL context, including any error feedback
+        error_feedback = state.get("error_feedback")
         prompt_content = f"""
         **High-Level Objective:**
         {state['objective']}
@@ -97,92 +129,95 @@ class ActionAgent:
         {state['rag_context']}
 
         **Current Webpage View (Interactive Elements):**
-        {state['current_page_content']}
+        {webpage_view_for_prompt}
 
         **History of Previous Actions:**
         {state['previous_actions']}
         
         **User's Answer to a Previous Question:**
-        {state.get('user_response') or 'N/A'} 
+        {state.get('user_response') or 'N/A'}
+        
+        **Feedback on Your Last Attempt (if any):**
+        {error_feedback or 'N/A. This is your first attempt.'}
         """
 
         
-        # Get the final answer from the LLM
+        # Step 3: Get the decision from the LLM.
         llm_response_str = self.openai_client.get_completion(
             system_prompt=self.action_system_prompt,
             user_prompt=prompt_content
         )
 
-        print("--- Parsing LLM Response ---")
+        print("--- Parsing and Enriching LLM Response ---")
         
-        # --- YENİ DÜŞÜNCE AYRIŞTIRMA MANTIĞI ---
-        
-        # 1. Use regex to extract the thinking process
-        thinking_match = re.search(r"<thinking>(.*?)</thinking>", llm_response_str, re.DOTALL)
-        thought_process = thinking_match.group(1).strip() if thinking_match else ""
-        
-        # 2. Use regex to extract the JSON response
-        json_match = re.search(r"<json_response>(.*?)</json_response>", llm_response_str, re.DOTALL)
-        
-        final_response_payload = {}
-
-        if json_match:
-            json_str = json_match.group(1).strip()
-            # Clean up potential markdown code blocks around the JSON
-            if json_str.startswith("```json"):
-                json_str = json_str[7:-4].strip()
+        # Step D: Parse the LLM's response and enrich it with the real selector.
+        try:
+            thinking_match = re.search(r"<thinking>(.*?)</thinking>", llm_response_str, re.DOTALL)
+            thought_process = thinking_match.group(1).strip() if thinking_match else ""
             
-            try:
-                parsed_json = json.loads(json_str)
-                
-                # --- YENİ: agent_id'yi gerçek seçiciye dönüştür ---
-                # 'current_page_content' string değil, dictionary listesi olmalı
-                page_elements = json.loads(state['current_page_content'])
-                
-                # agent_id'leri ve seçicileri hızlı erişim için bir haritaya koy
-                element_map = {el['agent_id']: el['selector'] for el in page_elements}
+            json_match = re.search(r"<json_response>(.*?)</json_response>", llm_response_str, re.DOTALL)
+            if not json_match: raise ValueError("Response missing <json_response> block.")
+            
+            json_str = json_match.group(1).strip().replace("```json", "").replace("```", "")
+            parsed_json = json.loads(json_str)
+            
+            # Add the thought process to the raw decision payload
+            parsed_json["full_thought_process"] = thought_process
+            
+            print(f"✅ LLM produced a decision draft with {len(parsed_json.get('actions', []))} action(s).")
+            
+            # The return value is the raw, unvalidated decision from the LLM.
+            return {"final_response": parsed_json}
 
-                for action in parsed_json.get("actions", []):
-                    if "target_agent_id" in action:
-                        agent_id = action["target_agent_id"]
-                        # Gerçek seçiciyi haritadan bul ve eyleme ekle
-                        if agent_id in element_map:
-                            action["selector"] = element_map[agent_id]
-                        else:
-                            print(f"❌ ERROR: LLM returned an invalid agent_id: {agent_id}")
-                            action["type"] = "FAIL"
-                            action["message"] = f"Could not find element with id {agent_id}."
-                
-                final_response_payload = parsed_json
-                final_response_payload["full_thought_process"] = thought_process
-
-            except json.JSONDecodeError:
-                print(f"❌ ERROR: LLM returned a non-JSON response part: {json_str}")
-                final_response_payload = {
-                    "actions": [{ "type": "FAIL", "explanation": "My reasoning engine produced an invalid format." }],
-                    "overall_explanation_of_bundle": "An internal error occurred."
-                }
-        else:
-            print(f"❌ ERROR: LLM response did not contain a <json_response> block.")
-            final_response_payload = {
-                "actions": [{ "type": "FAIL", "explanation": "My reasoning engine failed to produce a valid action." }],
-                "overall_explanation_of_bundle": "An internal error occurred."
+        except Exception as e:
+            print(f"❌ ERROR: Failed to parse LLM response: {e}")
+            # Create a response that will fail validation
+            error_response = {
+                "actions": [{ "type": "FAIL", "message": str(e), "explanation": "An internal parsing error occurred." }],
+                "overall_explanation_of_bundle": "Failed to process the decision.",
+                "full_thought_process": thought_process if 'thought_process' in locals() else "Parsing failed before thoughts could be fully extracted."
             }
-            
-        # 4. Add the extracted thought process to the final response dictionary
-        final_response_payload["full_thought_process"] = thought_process
-        
-        # Return the complete dictionary to update the state
-        return {"final_response": final_response_payload}
+            return {"final_response": error_response}
     
-    def invoke(self, objective: str, page_content: str, previous_actions: List[Dict], user_response: Optional[str]) -> Dict:
+    def validate_decision(self, state: AgentState) -> Dict:
+        """Node 4: Checks if the index chosen by the LLM is valid."""
+        print("--- Node: validate_decision ---")
+        actions = state["final_response"].get("actions", [])
+        analyzed_content = state["analyzed_content"]
+        
+        if not actions:
+            # If no actions, it's a valid (but empty) decision
+            return {"error_feedback": None}
+
+        target_index = actions[0].get("target_element_index")
+
+        # ASK_USER, FINISH gibi eylemlerin indeksi olmayabilir, bu geçerlidir.
+        if target_index is None:
+            return {"error_feedback": None}
+            
+        if 0 <= target_index < len(analyzed_content):
+            print(f"✅ Decision is VALID. Index {target_index} is within bounds.")
+            return {"error_feedback": None} # No error
+        else:
+            print(f"❌ Decision is INVALID. Index {target_index} is out of bounds (0-{len(analyzed_content)-1}).")
+            error = f"Your last decision to use index {target_index} was invalid. Please look at the VIEW again and choose an index that exists in the list."
+            return {"error_feedback": error}
+        
+    def check_decision_validity(self, state: AgentState) -> str:
+        """Conditional Edge: Routes to END if valid, or back to plan_and_think if invalid."""
+        if state.get("error_feedback"):
+            return "invalid"
+        else:
+            return "valid"
+    
+    def invoke(self, objective: str, visible_elements_html: List[str], previous_actions: List[Dict], user_response: Optional[str]) -> Dict:
         """
         The public method to run a single turn of the agent's reasoning loop.
         """
         # This is the initial input for the graph
         inputs = {
             "objective": objective,
-            "current_page_content": page_content,
+            "visible_elements_html": visible_elements_html,
             "previous_actions": previous_actions,
             "chat_history": [], # chat_history is not used yet, but the state requires it
             "user_response": user_response
@@ -192,4 +227,4 @@ class ActionAgent:
         final_state = self.graph.invoke(inputs)
         
         # Return the final response calculated by the last node
-        return final_state.get("final_response")
+        return final_state

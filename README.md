@@ -7,14 +7,16 @@ This project is an AI agent designed to interact with the Jotform website. It co
 ## 🚀 Features
 
 -   **RAG Knowledge Base:**
-    -   **Data Collection:** Automatically scrapes data from Jotform's help pages using `crawler.py`.
-    -   **Data Processing:** Intelligently splits raw text into semantically meaningful chunks using `chunker.py`.
+    -   **Data Collection:** Automatically scrapes data from Jotform's help pages.
+    -   **Data Processing:** Intelligently splits raw text into semantically meaningful chunks.
     -   **Vector Database:** Converts text chunks into vector embeddings and stores them in a **Qdrant** database.
 -   **Action Agent Core:**
-    -   **Web Perception:** Uses `Playwright` via a `BrowserManager` to see and analyze the content of live web pages.
-    -   **Decision Engine:** The core logic is built on **LangGraph**, allowing the agent to create multi-step plans, reason about its actions, and decide on the next best step.
-    -   **Tool Use:** The architecture is built to use "tools." The RAG system now functions as a `rag_tool` that the main agent can consult when it needs theoretical knowledge.
--   **Developer Mode:** Includes a `run_developer_mode.py` script to visually test the agent's actions in a real browser window.
+    -   **Web Perception:** Uses `Playwright` to see and `BeautifulSoup` to analyze the content of live web pages.
+    -   **Decision Engine:** The core logic is built on **LangGraph**, allowing the agent to create multi-step plans, reason about its actions, and even self-correct on errors.
+    -   **Tool Use:** The RAG system functions as a `rag_tool` that the main agent can consult when it needs theoretical knowledge.
+-   **Modes of Operation:**
+    -   **Stateful API:** A FastAPI server (`src/api/server.py`) provides a session-based, turn-by-turn API for frontend integration.
+    -   **Developer Mode:** Includes a `run_developer_mode.py` script to visually test the agent's actions in a real browser window.
 
 ---
 

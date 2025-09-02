@@ -1,64 +1,62 @@
-# src/web_interaction/page_analyzer.py (DOKÜMAN SIRASI VERSİYONU)
-
 from bs4 import BeautifulSoup, Tag
 from typing import List, Dict, Any
-import uuid
 
 class PageAnalyzer:
     """
-    Analyzes raw HTML content to extract interactive elements.
-    It now adds a 'document_order_index' to each element, using the order
-    they appear in the HTML source as a proxy for their vertical position.
+    Analyzes a list of raw HTML element strings and extracts a structured list.
+    Each element is assigned its index from the original list as its primary identifier.
     """
 
     def __init__(self):
+        # A list of selectors to identify any element that a user can interact with.
         self.interactive_selectors = [
             'a[href]', 'button', 'input:not([type=hidden])',
             'textarea', 'select', '[role=button]', '[role=link]'
         ]
 
-    def analyze(self, html_content: str) -> List[Dict[str, Any]]:
+    def analyze(self, html_elements: List[str]) -> List[Dict[str, Any]]:
         """
-        Parses the raw HTML and extracts a simplified list of interactive elements.
+        Parses a list of raw HTML element strings and extracts a simplified list.
 
         Args:
-            html_content (str): The raw HTML of the webpage.
+            html_elements (List[str]): A list of outerHTML strings for interactive elements.
 
         Returns:
-            A list of dictionaries representing interactive elements.
+            A list of dictionaries representing these elements with an added index.
         """
-        print("📊 Analyzing HTML to find interactive elements and their document order...")
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
-        # Find all candidate elements. BeautifulSoup returns them in document order.
-        elements = soup.select(','.join(self.interactive_selectors))
+        print(f"📊 Analyzing {len(html_elements)} HTML elements...")
         
         interactive_elements = []
-        # Use enumerate to get the index of each element in the list.
-        for index, element in enumerate(elements):
-            text = self._get_element_text(element)
+        # Use enumerate to get the index, which will serve as our unique ID for this turn.
+        for index, html_string in enumerate(html_elements):
+            # Each string is a mini-HTML document, so we parse it individually.
+            soup = BeautifulSoup(html_string, 'html.parser')
+            # The .find() method will get the top-level element from the snippet.
+            element = soup.find()
             
-            if text:
-                element_info = {
-                    "agent_id": str(uuid.uuid4())[:8],
-                    "text": text,
-                    "selector": self._create_selector(element),
-                    "tag": element.name,
-                    # --- YENİ: Dokümandaki sırasını (indeksini) ekle ---
-                    "document_order_index": index
-                }
-                interactive_elements.append(element_info)
+            if not element:
+                continue
+
+            element_info = {
+                "index": index, # The element's position in the list is its ID.
+                "text": self._get_element_text(element),
+                "selector": self._create_selector(element),
+                "tag": element.name,
+            }
+            interactive_elements.append(element_info)
         
-        print(f"👍 Found {len(interactive_elements)} interactive elements.")
+        print(f"👍 Successfully analyzed {len(interactive_elements)} elements.")
         return interactive_elements
 
     def _get_element_text(self, element: Tag) -> str:
+        """Gets the most relevant text from a BeautifulSoup element."""
         aria_label = element.get('aria-label')
         if aria_label:
             return aria_label.strip()
         return element.get_text(strip=True)
 
     def _create_selector(self, element: Tag) -> str:
+        """Creates a robust CSS selector using a priority hierarchy."""
         if element.get('id'):
             return f"#{element.get('id')}"
         if element.get('data-testid'):
@@ -69,10 +67,11 @@ class PageAnalyzer:
         name = element.get('name')
         if name:
             return f"{element.name}[name='{name}']"
+        
         text = self._get_element_text(element)
         if text:
-            # Using a simplified escape for quotes.
-            # In a production scenario, a more robust CSS escaping library might be needed.
+            # FIX: Escape quotes *before* creating the f-string to avoid SyntaxError.
             escaped_text = text.replace("'", "\\'").replace('"', '\\"')
             return f"{element.name}:has-text('{escaped_text}')"
+            
         return element.name
