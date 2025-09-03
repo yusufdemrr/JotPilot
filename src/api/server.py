@@ -13,6 +13,7 @@ load_dotenv("config/.env")
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse, Response
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from src.agents.action_agent import ActionAgent
 from src.api.models import (
@@ -30,6 +31,16 @@ import re
 print("🚀 Sunucu başlatılıyor ve AI Agent hazırlanıyor...")
 agent_brain = ActionAgent()
 app = FastAPI(title="Jotform AI Agent API", version="1.3.0")  # Sürümü güncelleyelim
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+)
+print("✅ CORS middleware configured for cross-origin requests")
 
 SESSION_CACHE: Dict[str, Any] = {}
 print("✅ Sunucu, Agent ve in-memory session cache hazır.")
