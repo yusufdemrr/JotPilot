@@ -153,34 +153,85 @@ class BrowserManager:
         await self.page.fill(selector, text, timeout=5000)
         print("👍 Typing successful.")
 
-    # Frontend'in yapacağı gibi, sayfadaki tüm görünür etkileşimli elementlerin outerHTML'ini al.
     async def get_visible_elements_html(self) -> List[str]:
         """
-        Finds all visible interactive elements on the current page and
-        returns a list of their outerHTML strings.
-        This simulates what the frontend extension will do.
+        Finds all truly interactable elements on the page, including those
+        deeply nested in Shadow DOMs. It first finds all candidates recursively
+        and then applies a strict set of visibility filters.
         """
         if not self.page:
             raise ConnectionError("Browser is not launched.")
 
-        # This list should be the same as the one in PageAnalyzer
-        interactive_selectors = [
-            'a[href]', 'button', 'input:not([type=hidden])',
-            'textarea', 'select', '[role=button]', '[role=link]'
-        ]
-        combined_selector = ', '.join(interactive_selectors)
+        js_script = """
+        () => {
+            const allCandidates = [];
+            const selectors = [
+                'a[href]', 'button', 'input:not([type=hidden])', 'textarea', 
+                'select', '[role=button]', '[role=link]', 'li[tabindex="0"]', 
+                'li.field-item', '[onclick]'
+            ].join(', ');
+
+            // 1. RECURSIVE SEARCH to find all candidates, even in Shadow DOMs
+            function findElements(startElement) {
+                // Search in the light DOM of the current element
+                startElement.querySelectorAll(selectors).forEach(el => allCandidates.push(el));
+
+                // Search inside all shadow roots within the current element
+                startElement.querySelectorAll('*').forEach(el => {
+                    if (el.shadowRoot) {
+                        findElements(el.shadowRoot); // Recursive call for the shadow root
+                    }
+                });
+            }
+            
+            // Start the search from the main document body.
+            findElements(document.body);
+
+            // 2. STRICT FILTERING on all found candidates
+            const finalElementsHTML = [];
+            const processedElements = new Set();
+            
+            for (const el of allCandidates) {
+                // If element or its parent was already processed, skip. Prevents seeing a button and its inner text as two separate items.
+                if (Array.from(processedElements).some(p => p === el || p.contains(el))) {
+                    continue;
+                }
+                
+                try {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width < 1 || rect.height < 1) continue;
+                    
+                    const style = window.getComputedStyle(el);
+                    if (style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0') continue;
+                    if (el.hasAttribute('disabled')) continue;
+
+                    const isInViewport = rect.top >= 0 && rect.left >= 0 && 
+                                       rect.bottom <= window.innerHeight && rect.right <= window.innerWidth;
+                    if (!isInViewport) continue;
+                    
+                    const topElement = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                    if (!topElement || (topElement !== el && !el.contains(topElement))) continue;
+                    
+                    // If an element passes all checks, it's a valid top-level interactive element.
+                    finalElementsHTML.push(el.outerHTML);
+                    processedElements.add(el);
+
+                } catch (e) { /* Ignore stale elements */ }
+            }
+            
+            return finalElementsHTML;
+        }
+        """
         
-        element_handles = await self.page.locator(combined_selector).all()
-        
-        visible_elements_html = []
-        for element in element_handles:
-            if await element.is_visible():
-                # evaluate is a way to run JavaScript on the element.
-                # 'e => e.outerHTML' gets the full HTML of the element itself.
-                html = await element.evaluate('e => e.outerHTML')
-                visible_elements_html.append(html)
-        
-        return visible_elements_html
+        print("🕵️  Finding all interactable elements recursively (incl. Shadow DOMs) and filtering...")
+        try:
+            visible_elements_html = await self.page.evaluate(js_script)
+            print(f"👍 Found {len(visible_elements_html)} top-level, visible, and interactable elements.")
+            return visible_elements_html
+        except Exception as e:
+            print(f"❌ ERROR during final element analysis: {e}")
+            return []
+
 
 async def _test_run():
     """A simple test function to demonstrate BrowserManager usage."""

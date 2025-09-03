@@ -7,13 +7,6 @@ class PageAnalyzer:
     Each element is assigned its index from the original list as its primary identifier.
     """
 
-    def __init__(self):
-        # A list of selectors to identify any element that a user can interact with.
-        self.interactive_selectors = [
-            'a[href]', 'button', 'input:not([type=hidden])',
-            'textarea', 'select', '[role=button]', '[role=link]'
-        ]
-
     def analyze(self, html_elements: List[str]) -> List[Dict[str, Any]]:
         """
         Parses a list of raw HTML element strings and extracts a simplified list.

@@ -22,8 +22,8 @@ async def main():
     """
     # --- 1. SETUP ---
     # objective = "Create a new ai agent from scratch and name it 'My First Agent'."
-    objective = "Create a new form named 'My First Form' with a Full Name and Email field, and set up email notifications to send submissions to your email address."
-    start_url = "https://www.jotform.com/myforms/"
+    objective = "Create a new agent named 'My First agent' on Jotform WebSite. Describe this agent as a algorithm tutor."
+    start_url = "https://www.jotform.com/myworkspace/"
     
     agent_brain = ActionAgent()
     previous_actions = []
@@ -106,6 +106,10 @@ async def main():
                         await browser.type(selector, action.get("value"))
                 else:
                     print(f"⚠️ Invalid index ({target_index}) from agent. Skipping action.")
+            
+            sleep_time = 3  # seconds
+            print(f"⏳ Waiting {sleep_time} seconds for the page to update...")
+            await asyncio.sleep(sleep_time)
             
             previous_actions.extend(actions_to_take)
 
