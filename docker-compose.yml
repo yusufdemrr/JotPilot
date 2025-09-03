@@ -8,7 +8,7 @@ services:
       - "6333:6333"      # HTTP API
       - "6334:6334"      # gRPC API (optional)
     volumes:
-      - ./data/vector:/qdrant/storage:Z
+      - ./data/vector:/qdrant/storage
     environment:
       # Qdrant configuration
       - QDRANT__SERVICE__HTTP_PORT=6333
