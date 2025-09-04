@@ -51,7 +51,8 @@ class CaseConversionMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
 
-        if response.headers.get("content-type") == "application/json":
+        # Convert response body from snake_case to camelCase if it's a JSON response
+        if "application/json" in response.headers.get("content-type", ""):
             response_body = b""
             async for chunk in response.body_iterator:
                 response_body += chunk
@@ -60,10 +61,13 @@ class CaseConversionMiddleware(BaseHTTPMiddleware):
                 data = json.loads(response_body.decode())
                 response_body_camel = convert_dict_keys(data, to_camel_case)
                 
-                # We need to create a new response because the original one is already consumed
-                return JSONResponse(content=response_body_camel, status_code=response.status_code, headers=dict(response.headers))
+                # Return a new JSONResponse. FastAPI will automatically handle
+                # calculating the correct Content-Length for the new body.
+                return JSONResponse(content=response_body_camel, status_code=response.status_code)
+            
             except json.JSONDecodeError:
-                # If response is not valid JSON, return it as is
+                # If response is not valid JSON, we still need to rebuild it
+                # to avoid "response already consumed" errors.
                 return Response(content=response_body, status_code=response.status_code, headers=response.headers)
         
         return response
