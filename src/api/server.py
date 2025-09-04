@@ -13,8 +13,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from src.agents.action_agent import ActionAgent
 from src.api.models import InitRequest, InitResponse, AgentTurnRequest, AgentTurnResponse
-# Middleware ve hata yöneticilerini yeni dosyadan import ediyoruz
-from src.api.middleware import CaseConversionMiddleware, http_exception_handler, general_exception_handler
+# Hata yöneticilerini middleware dosyasından import ediyoruz
+from src.api.middleware import http_exception_handler, general_exception_handler
 
 # --- UYGULAMA BAŞLANGICI ---
 print("🚀 Sunucu başlatılıyor ve AI Agent hazırlanıyor...")
@@ -22,18 +22,16 @@ agent_brain = ActionAgent()
 app = FastAPI(
     title="Jotform AI Agent API", 
     version="1.4.0",
-    # Python'un snake_case'ini JSON'un camelCase'ine çevirmek için alias'lar kullan
-    # Bu, Pydantic'in model-JSON dönüşümünü otomatik yapmasını sağlar.
-    # ANCAK, middleware kullandığımız için buna GEREK KALMADI.
+    # Python'un snake_case'ini JSON'un camelCase'ine çevirmek için Pydantic alias'ları kullanıyoruz
+    # Bu, model seviyesinde otomatik case conversion sağlar.
 )
 
 # --- MIDDLEWARE ve HATA YÖNETİCİLERİNİ EKLEME ---
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
-app.add_middleware(CaseConversionMiddleware)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
-print("✅ Middleware'ler (CORS, Case Conversion) ve hata yöneticileri eklendi.")
+print("✅ Middleware'ler (CORS) ve hata yöneticileri eklendi.")
 
 # --- IN-MEMORY CACHE ---
 SESSION_CACHE: Dict[str, Any] = {}
