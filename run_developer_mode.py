@@ -4,6 +4,8 @@ import asyncio
 import sys
 import os
 import json
+import yaml 
+import base64 
 from dotenv import load_dotenv
 
 # Load environment variables at the very top.
@@ -21,11 +23,35 @@ async def main():
     This final version has a clean execution loop that trusts the agent's plan.
     """
     # --- 1. SETUP ---
+     # Load config to check if vision is enabled
+    with open('config/config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+    
+    VISION_ENABLED = config.get('features', {}).get('vision_enabled', False)
+    print(f"👁️ Vision Mode Enabled: {VISION_ENABLED}")
+
     # objective = "Create a new ai agent from scratch and name it 'My First Agent'."
     objective = "Create a new form named 'My First form' on Jotform WebSite."
+    # objective = "Create a new ai agent on Jotform WebSite. Describe it as an algorithm tutor."
     start_url = "https://www.jotform.com/myworkspace/"
     
     agent_brain = ActionAgent()
+
+    print("\n--- Configuration Check ---")
+    # Agent'ın içindeki OpenAI istemcisinin yeteneğini kontrol et
+    model_has_vision = agent_brain.openai_client.has_vision_capability()
+    
+    if VISION_ENABLED and not model_has_vision:
+        print(f"🚨 UYARI: 'vision_enabled: true' ayarlı, ancak seçilen model ('{agent_brain.openai_client.model}') görüş yeteneğine sahip değil.")
+        print("   - Lütfen config.yaml dosyasında modeli 'gpt-4o' gibi bir görüş modeliyle güncelleyin.")
+        print("   - Hataları önlemek için görüş modu şimdilik kapatılıyor.")
+        VISION_ENABLED = False # Hata almamak için görüşü zorla kapat
+    elif not VISION_ENABLED and model_has_vision:
+        print("ℹ️  Bilgi: Seçili model görüş yeteneğine sahip, ancak 'vision_enabled: false' ayarlı. Sadece metin modu kullanılacak.")
+    else:
+        print(f"✅ Yapılandırma tutarlı. Görüş Modu: {VISION_ENABLED}")
+    print("--------------------------")
+
     previous_actions = []
     max_turns = 15
     user_response_for_next_turn = None
@@ -38,9 +64,20 @@ async def main():
         for turn in range(1, max_turns + 1):
             print(f"\n==================== TURN {turn} ====================")
 
+            sleep_time = 1  # seconds
+            print(f"⏳ Waiting {sleep_time} seconds for the page to update...")
+            await asyncio.sleep(sleep_time)
+
             # --- 2. SEE & PROCESS ---
             print("👀 Agent is 'seeing' the page and collecting visible elements...")
             visible_elements_html = await browser.get_visible_elements_html()
+
+            # Conditionally take and encode a screenshot
+            screenshot_base64 = None
+            if VISION_ENABLED:
+                print("📸 Taking a screenshot for visual analysis...")
+                screenshot_bytes = await browser.page.screenshot()
+                screenshot_base64 = base64.b64encode(screenshot_bytes).decode()
 
             # --- 3. THINK ---
             print("🧠 Agent is 'thinking' about the next action...")
@@ -48,7 +85,8 @@ async def main():
                 objective=objective,
                 visible_elements_html=visible_elements_html,
                 previous_actions=previous_actions,
-                user_response=user_response_for_next_turn
+                user_response=user_response_for_next_turn,
+                screenshot_base64=screenshot_base64
             )
             user_response_for_next_turn = None
 
@@ -110,7 +148,7 @@ async def main():
                     if action_type == "CLICK":
                         await browser.click(selector)
                     elif action_type == "TYPE":
-                        await browser.type(selector, action.get("value"))
+                        await browser.type(selector, action.get("type_value"))
                 else:
                     print(f"⚠️ Invalid index ({target_index}) from agent. Skipping action.")
             

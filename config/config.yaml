@@ -105,8 +105,8 @@ processing:
 # LLM Configuration (GPT-5 Integration)
 llm:
   provider: "openai"
-  # model: "gpt-4o"  # Use gpt-4o for now, will update to gpt-5 when available
-  model: "gpt-4o-mini"  # Placeholder for future use
+  model: "gpt-4o"  # Use gpt-4o for now, will update to gpt-5 when available
+  # model: "gpt-4o-mini"  # Placeholder for future use
   # model: "gpt-5"  # Placeholder for future use
   # model: "gpt5-nano"  # Placeholder for future use
   api_key_env: "OPENAI_API_KEY"
@@ -162,3 +162,6 @@ logging:
   file_pattern: "./logs/{module}_{timestamp}.log"
   max_file_size_mb: 10
   backup_count: 5
+
+features:
+  vision_enabled: true # true: ekran görüntüsü kullan, false: sadece metin analizi kullan

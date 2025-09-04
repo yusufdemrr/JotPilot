@@ -27,6 +27,7 @@ class AgentState(TypedDict):
     chat_history: List[BaseMessage] # Not used in this version, but good for future memory.
     user_response: Optional[str]    # Kullanıcıdan gelen cevabı tutar.
     error_feedback: Optional[str] # Yeni state: LLM'e geri bildirim için
+    screenshot_base64: Optional[str] # Yeni state: Ekran görüntüsü (base64 formatında), opsiyonel
 
 class ActionAgent:
     """
@@ -145,7 +146,8 @@ class ActionAgent:
         # Step 3: Get the decision from the LLM.
         llm_response_str = self.openai_client.get_completion(
             system_prompt=self.action_system_prompt,
-            user_prompt=prompt_content
+            user_prompt=prompt_content,
+            image_base64=state.get("screenshot_base64") # Ekran görüntüsünü isteğe bağlı olarak ekle
         )
 
         print("--- Parsing and Enriching LLM Response ---")
@@ -210,7 +212,7 @@ class ActionAgent:
         else:
             return "valid"
     
-    def invoke(self, objective: str, visible_elements_html: List[str], previous_actions: List[Dict], user_response: Optional[str]) -> Dict:
+    def invoke(self, objective: str, visible_elements_html: List[str], previous_actions: List[Dict], user_response: Optional[str], screenshot_base64: Optional[str]) -> Dict:
         """
         The public method to run a single turn of the agent's reasoning loop.
         """
@@ -220,7 +222,8 @@ class ActionAgent:
             "visible_elements_html": visible_elements_html,
             "previous_actions": previous_actions,
             "chat_history": [], # chat_history is not used yet, but the state requires it
-            "user_response": user_response
+            "user_response": user_response,
+            "screenshot_base64": screenshot_base64 # Girdiye ekran görüntüsünü ekle
         }
         
         # Run the graph from start to finish with the given inputs

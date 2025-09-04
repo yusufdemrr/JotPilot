@@ -39,6 +39,8 @@ class AgentTurnRequest(BaseModel):
         description="Bir önceki turda gerçekleştirilen eylemlerin başarı/hata durumu.",
     )
 
+    # Optional: Eğer vision_enabled ise, frontend ekran görüntüsünü de gönderebilir 
+    screenshot_base64: Optional[str] = Field(None, description="Sayfanın o anki ekran görüntüsü (base64 formatında). Opsiyonel.")
 
 # ActionHistory artık sadece backend'in dahili olarak kullandığı bir yapı
 class ActionHistory(BaseModel):
