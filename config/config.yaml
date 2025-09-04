@@ -165,3 +165,4 @@ logging:
 
 features:
   vision_enabled: true # true: ekran görüntüsü kullan, false: sadece metin analizi kullan
+  rag_enabled: false # true: RAG kullan, false: sadece LLM kullan

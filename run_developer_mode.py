@@ -31,9 +31,11 @@ async def main():
     print(f"👁️ Vision Mode Enabled: {VISION_ENABLED}")
 
     # objective = "Create a new ai agent from scratch and name it 'My First Agent'."
-    objective = "Create a new form named 'My First form' on Jotform WebSite."
+    # objective = "Create a new form named 'My First form' on Jotform WebSite."
     # objective = "Create a new ai agent on Jotform WebSite. Describe it as an algorithm tutor."
-    start_url = "https://www.jotform.com/myworkspace/"
+    objective = "Hacettepe yurt sayfasına git ve benim adıma ödeme yap."
+    # start_url = "https://www.jotform.com/myworkspace/"
+    start_url = "https://barinma.hacettepe.edu.tr/Account/Login?ReturnUrl=%2F"
     
     agent_brain = ActionAgent()
 

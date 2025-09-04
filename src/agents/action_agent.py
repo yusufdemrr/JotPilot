@@ -44,6 +44,10 @@ class ActionAgent:
         with open(config_path, 'r', encoding='utf-8') as f:
             self.config = yaml.safe_load(f)
 
+        # Check if RAG is enabled in features
+        self.rag_enabled = self.config.get('features', {}).get('rag_enabled', True)
+        print(f"🧠 RAG (Knowledge Base) Enabled: {self.rag_enabled}")
+
         self.page_analyzer = PageAnalyzer()
         self.openai_client = OpenAIClient(self.config['llm'])
         
@@ -64,11 +68,18 @@ class ActionAgent:
         # Define the entry point of the graph
         workflow.set_entry_point("analyze_page")
 
+        workflow.add_conditional_edges(
+            "analyze_page",
+            self.should_retrieve_rag,
+            {
+                "continue_to_rag": "retrieve_rag_context", # RAG aktifse bu yola git
+                "skip_rag": "plan_and_think"           # RAG pasifse bu adımı atla, doğrudan düşünmeye geç
+            }
+        )
+
         # Define the connections (edges) between the nodes
-        workflow.add_edge("analyze_page", "retrieve_rag_context")
         workflow.add_edge("retrieve_rag_context", "plan_and_think")
         workflow.add_edge("plan_and_think", "validate_decision")
-
 
         # Koşullu kenarı tanımla: Karar geçerli mi, değil mi?
         workflow.add_conditional_edges(
@@ -83,6 +94,16 @@ class ActionAgent:
         # Compile the graph into a runnable object
         self.graph = workflow.compile()
         print("✅ ActionAgent initialized successfully with a compiled LangGraph.")
+
+    # should_retrieve_rag fonksiyonu, config ayarına göre RAG aracını çağırıp çağırmayacağına karar verir
+    def should_retrieve_rag(self, state: AgentState) -> str:
+        """
+        Determines whether to call the RAG tool based on the config setting.
+        """
+        if self.rag_enabled:
+            return "continue_to_rag"
+        else:
+            return "skip_rag"
 
     # --- Node 1: Analyze the Current Page Content ---
     def analyze_page(self, state: AgentState) -> Dict:
@@ -121,13 +142,15 @@ class ActionAgent:
         ])
         
         # Step 2: Prepare the full prompt with ALL context, including any error feedback
+        # We use state.get() to safely access 'rag_context'.
+        # If the key doesn't exist, it will use the default value instead of crashing.
         error_feedback = state.get("error_feedback")
         prompt_content = f"""
         **High-Level Objective:**
         {state['objective']}
 
         **Relevant Knowledge from Help Documents (RAG Context):**
-        {state['rag_context']}
+        {state.get('rag_context', 'Not used in this turn.')}
 
         **Current Webpage View (Interactive Elements):**
         {webpage_view_for_prompt}
