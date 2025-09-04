@@ -3,6 +3,7 @@
 import sys
 import os
 import uuid
+import json
 from typing import Dict, Any
 from dotenv import load_dotenv
 
@@ -45,22 +46,36 @@ async def health_check():
 
 @app.post("/agent/init", response_model=InitResponse)
 async def init_session(request: InitRequest) -> InitResponse:
-    # ... (Bu fonksiyonun içi aynı kalacak) ...
+    # Print request payload as raw JSON
+    print(f"\n📥 /agent/init REQUEST JSON:")
+    print(json.dumps(request.dict(), indent=2))
+    
     session_id = f"session-{uuid.uuid4()}"
     SESSION_CACHE[session_id] = {
         "objective": request.objective,
         "previous_actions": [],
         "last_proposed_actions": None,
     }
+    
+    response = InitResponse(session_id=session_id)
+    
+    # Print response payload as raw JSON
+    print(f"\n📤 /agent/init RESPONSE JSON:")
+    print(json.dumps(response.dict(), indent=2))
     print(f"✨ New session created: {session_id}")
-    return InitResponse(session_id=session_id)
+    
+    return response
 
 
 @app.post("/agent/next_action", response_model=AgentTurnResponse)
 async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
-    # ... (Bu fonksiyonun içi tamamen aynı kalacak) ...
     session_id = request.session_id
-    print(f"\n▶️  Received request for session: {session_id}")
+    
+    # Print request payload as raw JSON
+    print(f"\n📥 /agent/next_action REQUEST JSON:")
+    print(json.dumps(request.dict(), indent=2))
+    
+    print(f"\n▶️  Processing request for session: {session_id}")
 
     session_data = SESSION_CACHE.get(session_id)
     if not session_data:
@@ -100,5 +115,9 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
         full_thought_process=response_dict.get("full_thought_process")
     )
 
+    # Print response payload as raw JSON
+    print(f"\n📤 /agent/next_action RESPONSE JSON:")
+    print(json.dumps(final_response.dict(), indent=2))
+    
     print(f"◀️  Sending response for session: {session_id}")
     return final_response
