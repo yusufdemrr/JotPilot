@@ -22,13 +22,15 @@ async def main():
     """
     # --- 1. SETUP ---
     # objective = "Create a new ai agent from scratch and name it 'My First Agent'."
-    objective = "Create a new agent named 'My First agent' on Jotform WebSite. Describe this agent as a algorithm tutor."
+    objective = "Create a new form named 'My First form' on Jotform WebSite."
     start_url = "https://www.jotform.com/myworkspace/"
     
     agent_brain = ActionAgent()
     previous_actions = []
     max_turns = 15
     user_response_for_next_turn = None
+
+    AUTO_MODE = True  # Set to True to skip user confirmations
 
     async with BrowserManager(headless=False) as browser:
         await browser.goto(start_url)
@@ -68,20 +70,25 @@ async def main():
                 break
             
             first_action = actions_to_take[0]
-            if first_action.get("type") in ["FINISH", "FAIL"]:
-                print(f"\n🏁 Agent finished or failed: {first_action.get('message')}")
+            action_type = first_action.get("type")
+
+            if action_type in ["FINISH", "FAIL"]:
+                final_message = first_action.get("status_message")
+                print(f"\n🏁 Agent finished or failed: {final_message}")
                 break
             
-            if first_action.get("type") == "ASK_USER":
-                question_for_user = first_action.get("question")
+            if action_type == "ASK_USER":
+                question_for_user = first_action.get("user_question")
                 print(f"\n🤔 AGENT ASKS: {question_for_user}")
                 user_response_for_next_turn = input("Your response: ")
                 previous_actions.extend(actions_to_take)
                 continue
             
-            user_input = input("\n👉 Press Enter to EXECUTE the actions, or type 'exit' to stop: ")
-            if user_input.lower() == 'exit':
-                break
+            #* Ask for user confirmation before executing actions
+            if not AUTO_MODE:
+                user_input = input("\n👉 Press Enter to EXECUTE the actions, or type 'exit' to stop: ")
+                if user_input.lower() == 'exit':
+                    break
 
             # --- 6. EXECUTE ACTIONS (The "Translator" Logic) ---
             print("\n🚀 Executing actions...")

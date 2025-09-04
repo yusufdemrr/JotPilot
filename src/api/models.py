@@ -67,9 +67,9 @@ class Action(BaseModel):
         description="The index of the target element within the 'visible_elements_html' list.",
     )
 
-    value: Optional[str] = None
-    question: Optional[str] = None
-    message: Optional[str] = None
+    type_value: Optional[str] = Field(None, description="The text to be typed for TYPE actions.")
+    user_question: Optional[str] = Field(None, description="The question to ask the user for ASK_USER actions.")
+    status_message: Optional[str] = Field(None, description="The final status message for FINISH or FAIL actions.")
     explanation: str
 
 
