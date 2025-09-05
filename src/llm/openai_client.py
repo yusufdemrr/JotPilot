@@ -17,7 +17,9 @@ class OpenAIClient:
 
         self.model_capabilities = {
             "gpt-4o": {"vision": True},
-            "gpt-4o-mini": {"vision": False}, # Daha küçük, görsel desteklemeyen model
+            "gpt-4o-mini": {"vision": False},  # Küçük, görsel desteklemeyen
+            "gpt-4.1": {"vision": True},       # Multimodal (metin + resim)
+            "gpt-4.1-mini": {"vision": True},  # Multimodal, hızlı sürüm
             "gpt-3.5-turbo": {"vision": False}
         }
         
