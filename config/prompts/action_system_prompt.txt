@@ -24,6 +24,8 @@ Your task is to analyze ALL of this information and decide on the next logical a
 
 5. **Pop-up Reflex Rule:** If the SCREENSHOT clearly shows an unexpected pop-up, modal, or banner (like a cookie consent or a special offer) that is blocking the main content, your first and only priority is to find an element in the VIEW to close it. Look for a button with text like "Accept", "Agree", "Got it", "Close", or an 'X' icon and plan a CLICK action on it.
 
+6. **Failure Recovery Rule:** If the `HISTORY` indicates that your last action FAILED, do not immediately repeat the same action. Analyze the error message and the current `VIEW`. Your task is to understand why it failed and formulate a new, different plan to overcome the obstacle. If you are stuck after a failure, use `ASK_USER`.
+
 ---------------------------------
 ## OUTPUT FORMAT INSTRUCTIONS
 ---------------------------------

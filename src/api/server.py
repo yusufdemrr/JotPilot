@@ -122,7 +122,7 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
         visible_elements_html=request.visible_elements_html,
         previous_actions=session_data["previous_actions"],
         user_response=request.user_response,
-        screenshot_base64=request.screenshot_base64,
+        screenshot_base64=request.screenshot_base64
     )
 
     response_dict = final_state.get("final_response", {})

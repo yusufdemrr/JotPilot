@@ -31,11 +31,11 @@ async def main():
     print(f"👁️ Vision Mode Enabled: {VISION_ENABLED}")
 
     # objective = "Create a new ai agent from scratch and name it 'My First Agent'."
-    # objective = "Create a new form named 'My First form' on Jotform WebSite."
+    objective = "Create a new form named 'My First form' on Jotform WebSite, and publish it."
     # objective = "Create a new ai agent on Jotform WebSite. Describe it as an algorithm tutor."
-    objective = "Hacettepe yurt sayfasına git ve benim adıma ödeme yap."
-    # start_url = "https://www.jotform.com/myworkspace/"
-    start_url = "https://barinma.hacettepe.edu.tr/Account/Login?ReturnUrl=%2F"
+    # objective = "Hacettepe yurt sayfasına git ve benim adıma ödeme yap."
+    start_url = "https://www.jotform.com/myworkspace/"
+    # start_url = "https://barinma.hacettepe.edu.tr/Account/Login?ReturnUrl=%2F"
     
     agent_brain = ActionAgent()
 
@@ -132,27 +132,50 @@ async def main():
 
             # --- 6. EXECUTE ACTIONS (The "Translator" Logic) ---
             print("\n🚀 Executing actions...")
+            # Bu turda gerçekleşen eylemlerin zengin sonuçlarını tutacak bir liste.
+            turn_outcomes_for_history = []
+            
             for action in actions_to_take:
                 action_type = action.get("type")
                 target_index = action.get("target_element_index")
-
-                # The script translates the index to a selector using the analysis
-                # that the agent conveniently returned to us.
-                if target_index is not None and 0 <= target_index < len(analyzed_content):
-                    selector = analyzed_content[target_index].get("selector")
-                    
+                selector = analyzed_content[target_index].get("selector") if target_index is not None and 0 <= target_index < len(analyzed_content) else None
+                
+                try:
+                    # Debug çıktısını eylemden hemen önce göster
                     print("\n--- DEBUG INFO ---")
-                    print(f"Action Type: {action_type}")
+                    print(f"Attempting Action: {action_type}")
                     print(f"Target Index: {target_index}")
                     print(f"Resolved Selector: {selector}")
                     print("------------------")
 
+                    if not selector and action_type in ["CLICK", "TYPE"]:
+                        raise ValueError(f"Action failed because selector for index {target_index} could not be resolved.")
+
+                    # Eylemi gerçekleştir
                     if action_type == "CLICK":
                         await browser.click(selector)
                     elif action_type == "TYPE":
                         await browser.type(selector, action.get("type_value"))
-                else:
-                    print(f"⚠️ Invalid index ({target_index}) from agent. Skipping action.")
+                    
+                    # Eylem başarılı olursa, zengin bir BAŞARI raporu oluştur.
+                    turn_outcomes_for_history.append({
+                        "action_type": action_type,
+                        "description": f"Successfully executed: {action.get('explanation')}"
+                    })
+
+                except Exception as e:
+                    # Eğer bir hata oluşursa, zengin bir HATA raporu oluştur.
+                    print(f"🔥 ACTION FAILED: {e}")
+                    turn_outcomes_for_history.append({
+                        "action_type": "FAIL",
+                        "description": f"Attempted '{action.get('type')}' on index '{target_index}' but it FAILED. Reason: {str(e)}"
+                    })
+                    # Eylem paketindeki bir adım başarısız olursa, döngüyü kır.
+                    break 
+            
+            # Agent'ın bir sonraki turda göreceği resmi geçmişi, bu turdaki
+            # zengin ve gerçekçi sonuçlarla güncelle.
+            previous_actions.extend(turn_outcomes_for_history)
             
             sleep_time = 3  # seconds
             print(f"⏳ Waiting {sleep_time} seconds for the page to update...")
