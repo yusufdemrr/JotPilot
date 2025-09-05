@@ -11,7 +11,10 @@ class InitRequest(BaseModel):
 
 
 class InitResponse(BaseModel):
-    session_id: str = Field(..., description="Oturum için oluşturulan benzersiz ID.")
+    session_id: str = Field(..., alias="sessionId", description="Oturum için oluşturulan benzersiz ID.")
+    
+    class Config:
+        populate_by_name = True
 
 
 # --- /agent/next_action Endpoint Modelleri ---
@@ -25,27 +28,37 @@ class ExecutedAction(BaseModel):
     """Frontend, bir önceki turun sonucunu bu basit modelle raporlar."""
 
     status: str = Field(..., description="'SUCCESS' veya 'FAIL'")
-    error_message: Optional[str] = None  # Eğer FAIL ise
+    error_message: Optional[str] = Field(None, alias="errorMessage")  # Eğer FAIL ise
+    
+    class Config:
+        populate_by_name = True
 
 
 class AgentTurnRequest(BaseModel):
-    session_id: str
-    visible_elements_html: List[str]
-    user_response: Optional[str] = None
+    session_id: str = Field(..., alias="sessionId")
+    visible_elements_html: List[str] = Field(..., alias="visibleElementsHtml")
+    user_response: Optional[str] = Field(None, alias="userResponse")
 
     # Frontend artık sadece bir önceki turun sonucunu gönderir, detayları değil.
     last_turn_outcome: List[ExecutedAction] = Field(
         ...,
+        alias="lastTurnOutcome",
         description="Bir önceki turda gerçekleştirilen eylemlerin başarı/hata durumu.",
     )
+    
+    class Config:
+        populate_by_name = True
 
     # Optional: Eğer vision_enabled ise, frontend ekran görüntüsünü de gönderebilir 
     screenshot_base64: Optional[str] = Field(None, description="Sayfanın o anki ekran görüntüsü (base64 formatında). Opsiyonel.")
 
 # ActionHistory artık sadece backend'in dahili olarak kullandığı bir yapı
 class ActionHistory(BaseModel):
-    action_type: str
+    action_type: str = Field(..., alias="actionType")
     description: str
+    
+    class Config:
+        populate_by_name = True
 
 
 # --------------------------------------------------------------------------
@@ -66,13 +79,17 @@ class Action(BaseModel):
     # The key field: the index of the target element in the list the frontend sent.
     target_element_index: Optional[int] = Field(
         None,
+        alias="targetElementIndex",
         description="The index of the target element within the 'visible_elements_html' list.",
     )
 
-    type_value: Optional[str] = Field(None, description="The text to be typed for TYPE actions.")
-    user_question: Optional[str] = Field(None, description="The question to ask the user for ASK_USER actions.")
-    status_message: Optional[str] = Field(None, description="The final status message for FINISH or FAIL actions.")
+    type_value: Optional[str] = Field(None, alias="typeValue", description="The text to be typed for TYPE actions.")
+    user_question: Optional[str] = Field(None, alias="userQuestion", description="The question to ask the user for ASK_USER actions.")
+    status_message: Optional[str] = Field(None, alias="statusMessage", description="The final status message for FINISH or FAIL actions.")
     explanation: str
+    
+    class Config:
+        populate_by_name = True
 
 
 class AgentTurnResponse(BaseModel):
@@ -81,7 +98,10 @@ class AgentTurnResponse(BaseModel):
     It contains a list of actions to perform.
     """
 
-    session_id: str
+    session_id: str = Field(..., alias="sessionId")
     actions: List[Action]
-    overall_explanation_of_bundle: str
-    full_thought_process: Optional[str] = None
+    overall_explanation_of_bundle: str = Field(..., alias="overallExplanationOfBundle")
+    full_thought_process: Optional[str] = Field(None, alias="fullThoughtProcess")
+    
+    class Config:
+        populate_by_name = True
