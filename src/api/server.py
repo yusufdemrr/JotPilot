@@ -7,13 +7,21 @@ import json
 from typing import Dict, Any
 from dotenv import load_dotenv
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-load_dotenv('config/.env')
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+load_dotenv("config/.env")
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from src.agents.action_agent import ActionAgent
-from src.api.models import InitRequest, InitResponse, AgentTurnRequest, AgentTurnResponse
+from src.api.models import (
+    InitRequest,
+    InitResponse,
+    AgentTurnRequest,
+    AgentTurnResponse,
+)
+
 # Hata yöneticilerini middleware dosyasından import ediyoruz
 from src.api.middleware import http_exception_handler, general_exception_handler
 
@@ -21,14 +29,20 @@ from src.api.middleware import http_exception_handler, general_exception_handler
 print("🚀 Sunucu başlatılıyor ve AI Agent hazırlanıyor...")
 agent_brain = ActionAgent()
 app = FastAPI(
-    title="Jotform AI Agent API", 
+    title="Jotform AI Agent API",
     version="1.4.0",
     # Python'un snake_case'ini JSON'un camelCase'ine çevirmek için Pydantic alias'ları kullanıyoruz
     # Bu, model seviyesinde otomatik case conversion sağlar.
 )
 
 # --- MIDDLEWARE ve HATA YÖNETİCİLERİNİ EKLEME ---
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
@@ -40,41 +54,43 @@ print("✅ Sunucu, Agent ve in-memory session cache hazır.")
 
 # --- API ENDPOINTS ---
 
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "version": app.version}
+
 
 @app.post("/agent/init", response_model=InitResponse)
 async def init_session(request: InitRequest) -> InitResponse:
     # Print request payload as raw JSON
     print(f"\n📥 /agent/init REQUEST JSON:")
     print(json.dumps(request.dict(), indent=2))
-    
+
     session_id = f"session-{uuid.uuid4()}"
     SESSION_CACHE[session_id] = {
         "objective": request.objective,
         "previous_actions": [],
         "last_proposed_actions": None,
     }
-    
+
     response = InitResponse(session_id=session_id)
-    
+
     # Print response payload as raw JSON
     print(f"\n📤 /agent/init RESPONSE JSON:")
     print(json.dumps(response.dict(), indent=2))
     print(f"✨ New session created: {session_id}")
-    
+
     return response
 
 
 @app.post("/agent/next_action", response_model=AgentTurnResponse)
 async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
     session_id = request.session_id
-    
+
     # Print request payload as raw JSON
     print(f"\n📥 /agent/next_action REQUEST JSON:")
     print(json.dumps(request.dict(), indent=2))
-    
+
     print(f"\n▶️  Processing request for session: {session_id}")
 
     session_data = SESSION_CACHE.get(session_id)
@@ -87,23 +103,28 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
         for i, outcome in enumerate(request.last_turn_outcome):
             action_to_log = last_proposed[i]
             if outcome.status.upper() == "SUCCESS":
-                session_data["previous_actions"].append({
-                    "action_type": action_to_log.get("type"),
-                    "description": action_to_log.get("explanation")
-                })
+                session_data["previous_actions"].append(
+                    {
+                        "action_type": action_to_log.get("type"),
+                        "description": action_to_log.get("explanation"),
+                    }
+                )
             else:
-                session_data["previous_actions"].append({
-                    "action_type": "FAIL",
-                    "description": f"Action '{action_to_log.get('type')}' failed with error: {outcome.error_message}"
-                })
-    
+                session_data["previous_actions"].append(
+                    {
+                        "action_type": "FAIL",
+                        "description": f"Action '{action_to_log.get('type')}' failed with error: {outcome.error_message}",
+                    }
+                )
+
     final_state = agent_brain.invoke(
         objective=session_data["objective"],
         visible_elements_html=request.visible_elements_html,
         previous_actions=session_data["previous_actions"],
         user_response=request.user_response,
+        screenshot_base64=request.screenshot_base64,
     )
-    
+
     response_dict = final_state.get("final_response", {})
     new_actions = response_dict.get("actions", [])
     session_data["last_proposed_actions"] = new_actions
@@ -111,13 +132,15 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
     final_response = AgentTurnResponse(
         session_id=session_id,
         actions=new_actions,
-        overall_explanation_of_bundle=response_dict.get("overall_explanation_of_bundle", ""),
-        full_thought_process=response_dict.get("full_thought_process")
+        overall_explanation_of_bundle=response_dict.get(
+            "overall_explanation_of_bundle", ""
+        ),
+        full_thought_process=response_dict.get("full_thought_process"),
     )
 
     # Print response payload as raw JSON
     print(f"\n📤 /agent/next_action RESPONSE JSON:")
     print(json.dumps(final_response.dict(), indent=2))
-    
+
     print(f"◀️  Sending response for session: {session_id}")
     return final_response
