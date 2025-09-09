@@ -31,6 +31,7 @@ qdrant-client>=1.6.0           # Qdrant Python client
 # LLM & RAG Integration
 openai>=1.12.0                # OpenAI API client (unified version - latest)
 langchain>=0.3.0              # LLM framework
+langgraph>=0.0.30             # For building the agent graph
 langchain-openai>=0.2.0       # OpenAI integration
 langchain-community>=0.3.0    # Community tools
 langchain-core>=0.3.0         # Core components

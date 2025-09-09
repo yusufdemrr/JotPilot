@@ -29,6 +29,8 @@ class AgentState(TypedDict):
     error_feedback: Optional[str] # Yeni state: LLM'e geri bildirim için
     screenshot_base64: Optional[str] # Yeni state: Ekran görüntüsü (base64 formatında), opsiyonel
 
+    retry_count: int          # How many times we've retried this state (for failure recovery)
+
 class ActionAgent:
     """
     The main brain of our application.
@@ -144,7 +146,12 @@ class ActionAgent:
         # Step 2: Prepare the full prompt with ALL context, including any error feedback
         # We use state.get() to safely access 'rag_context'.
         # If the key doesn't exist, it will use the default value instead of crashing.
-        error_feedback = state.get("error_feedback")
+        # `user_response` hem agent'ın sorusuna cevap hem de kullanıcının ani müdahalesi olabilir.
+        user_feedback = state.get('user_response') or 'N/A'
+        
+        # Hata geri bildirimi varsa, bunu da prompt'a ekliyoruz.
+        error_feedback = state.get("error_feedback") or 'N/A. This is the first attempt for this state.'
+
         prompt_content = f"""
         **High-Level Objective:**
         {state['objective']}
@@ -159,7 +166,7 @@ class ActionAgent:
         {state['previous_actions']}
         
         **User's Answer to a Previous Question:**
-        {state.get('user_response') or 'N/A'}
+        {user_feedback}
         
         **Feedback on Your Last Attempt (if any):**
         {error_feedback or 'N/A. This is your first attempt.'}
@@ -209,24 +216,45 @@ class ActionAgent:
         print("--- Node: validate_decision ---")
         actions = state["final_response"].get("actions", [])
         analyzed_content = state["analyzed_content"]
+
+        retry_count = state.get("retry_count", 0)
+        MAX_RETRIES = 2 # Maksimum deneme sayısı
+
+        if retry_count >= MAX_RETRIES:
+            print(f"🚨 AGENT STUCK: Reached maximum retry limit of {MAX_RETRIES}. Forcing ASK_USER.")
+            # Agent'ı döngüden çıkarmak için eylem planını değiştiriyoruz.
+            state["final_response"] = {
+                "actions": [{
+                    "type": "ASK_USER",
+                    "user_question": "I seem to be stuck in a loop and can't make a valid decision. Could you please guide me on the next step?",
+                    "explanation": "I have failed to make a valid decision multiple times and need user assistance."
+                }],
+                "overall_explanation_of_bundle": "Requesting user help to resolve a repeating error.",
+                "full_thought_process": state["final_response"].get("full_thought_process", "")
+            }
+            # Döngüyü kırmak için kararın GEÇERLİ olduğunu söylüyoruz.
+            return {"error_feedback": None}
         
         if not actions:
             # If no actions, it's a valid (but empty) decision
             return {"error_feedback": None}
 
-        target_index = actions[0].get("target_element_index")
-
-        # ASK_USER, FINISH gibi eylemlerin indeksi olmayabilir, bu geçerlidir.
-        if target_index is None:
-            return {"error_feedback": None}
+        # Check all actions in the bundle for a valid index.
+        for action in actions:
+            target_index = action.get("target_element_index")
             
-        if 0 <= target_index < len(analyzed_content):
-            print(f"✅ Decision is VALID. Index {target_index} is within bounds.")
-            return {"error_feedback": None} # No error
-        else:
-            print(f"❌ Decision is INVALID. Index {target_index} is out of bounds (0-{len(analyzed_content)-1}).")
-            error = f"Your last decision to use index {target_index} was invalid. Please look at the VIEW again and choose an index that exists in the list."
-            return {"error_feedback": error}
+            # If an action has a target_element_index, it MUST be valid.
+            # Actions like ASK_USER or FINISH might not have an index, which is fine.
+            if target_index is not None:
+                if not (0 <= target_index < len(analyzed_content)):
+                    # If ANY index is invalid, fail the whole bundle and return feedback.
+                    print(f"❌ Decision is INVALID. Index {target_index} is out of bounds (0-{len(analyzed_content)-1}).")
+                    error = f"Your last decision to use index {target_index} was invalid. The available indices are from 0 to {len(analyzed_content)-1}. Please look at the VIEW again and choose an index that exists in the list."
+                    return {"error_feedback": error}
+        
+        # If the loop completes without finding any invalid indices, the entire bundle is valid.
+        print(f"✅ Decision is VALID. All {len(actions)} action(s) have valid indices.")
+        return {"error_feedback": None}
         
     def check_decision_validity(self, state: AgentState) -> str:
         """Conditional Edge: Routes to END if valid, or back to plan_and_think if invalid."""
@@ -246,7 +274,8 @@ class ActionAgent:
             "previous_actions": previous_actions,
             "chat_history": [], # chat_history is not used yet, but the state requires it
             "user_response": user_response,
-            "screenshot_base64": screenshot_base64 # Girdiye ekran görüntüsünü ekle
+            "screenshot_base64": screenshot_base64, # Girdiye ekran görüntüsünü ekle
+            "retry_count": 0 # Her yeni 'invoke' çağrısında deneme sayacını sıfırla
         }
         
         # Run the graph from start to finish with the given inputs

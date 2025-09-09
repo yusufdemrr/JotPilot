@@ -137,21 +137,32 @@ class BrowserManager:
                 print(f"❌ ERROR during click on '{selector}': {e}")
                 raise
 
-    async def type(self, selector: str, text: str):
+    # Mevcut 'type' metodunu 'click_and_type' olarak yeniden adlandıralım.
+    async def click_and_type(self, selector: str, text: str):
         """
-        Types the given text into an element identified by its CSS selector.
-        Uses `fill` which is often faster and more reliable than typing character by character.
-
-        Args:
-            selector (str): The CSS selector of the input element.
-            text (str): The text to type into the element.
+        Clicks an element to focus it and then types text sequentially.
+        Ideal for contenteditable elements.
         """
-        if not self.page:
-            raise ConnectionError("Browser is not launched.")
+        if not self.page: raise ConnectionError("Browser not launched.")
+        print(f"⌨️ Clicking and typing '{text}' into element: {selector}")
+        target_element = self.page.locator(selector).first
+        await target_element.wait_for(state="visible", timeout=10000)
+        await target_element.click() 
+        await target_element.press_sequentially(text, delay=50)
+        print("👍 Click and type successful.")
 
-        print(f"⌨️ Typing '{text}' into element: {selector}")
-        await self.page.fill(selector, text, timeout=5000)
-        print("👍 Typing successful.")
+    # Sadece doldurma yapan yeni bir metot ekleyelim.
+    async def fill_text(self, selector: str, text: str):
+        """
+        Fills an input-like element with text without a preceding click.
+        Ideal for standard <input> and <textarea> fields.
+        """
+        if not self.page: raise ConnectionError("Browser not launched.")
+        print(f"⌨️ Filling '{text}' into element: {selector}")
+        target_element = self.page.locator(selector).first
+        await target_element.wait_for(state="visible", timeout=10000)
+        await target_element.fill(text, timeout=5000)
+        print("👍 Fill successful.")
 
     async def get_visible_elements_html(self) -> List[str]:
         """
@@ -168,7 +179,7 @@ class BrowserManager:
             const selectors = [
                 'a[href]', 'button', 'input:not([type=hidden])', 'textarea', 
                 'select', '[role=button]', '[role=link]', 'li[tabindex="0"]', 
-                'li.field-item', '[onclick]'
+                'li.field-item', '[onclick]', '[contenteditable="true"]'
             ].join(', ');
 
             // 1. RECURSIVE SEARCH to find all candidates, even in Shadow DOMs

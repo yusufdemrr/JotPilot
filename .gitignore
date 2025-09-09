@@ -31,3 +31,7 @@ logs/
 
 # Bağımlılıklar (requirements.txt ile yeniden oluşturulabilir)
 /site-packages/
+
+# Diğer Geçici Dosyalar
+repomix-output.xml
+debug_screenshot_base64.txt

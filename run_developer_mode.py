@@ -8,6 +8,17 @@ import yaml
 import base64 
 from dotenv import load_dotenv
 
+# --- Asenkron, bloklamayan kullanıcı girdisi için ---
+import selectors
+selector = selectors.DefaultSelector()
+loop = asyncio.get_event_loop()
+user_input_buffer = ""
+
+def on_user_input():
+    global user_input_buffer
+    user_input_buffer = sys.stdin.readline().strip()
+# ---------------------------------------------------
+
 # Load environment variables at the very top.
 load_dotenv('config/.env')
 
@@ -22,6 +33,7 @@ async def main():
     The main workflow for running the agent in VISIBLE developer mode.
     This final version has a clean execution loop that trusts the agent's plan.
     """
+    global user_input_buffer # To hold user input between async calls
     # --- 1. SETUP ---
      # Load config to check if vision is enabled
     with open('config/config.yaml', 'r') as f:
@@ -30,14 +42,15 @@ async def main():
     VISION_ENABLED = config.get('features', {}).get('vision_enabled', False)
     print(f"👁️ Vision Mode Enabled: {VISION_ENABLED}")
 
-    # objective = "Create a new ai agent from scratch and name it 'My First Agent'."
-    objective = "Create a new form, add an header element on Jotform WebSite, and publish it."
+    # objective = "Create a new form, and design it like a feedback form, and publish."
     # objective = "Create a new ai agent on Jotform WebSite. Describe it as an algorithm tutor."
+    # objective = "Create a new form on Jotform WebSite. Create a heading and type 'Hello World' in it and publish."
+    # objective = "Create a new app on Jotform WebSite. Create a text and type 'Hello World' in it and publish."
     # objective = "Hacettepe yurt sayfasına git ve benim adıma ödeme yap."
-    # objective = "Arabam.com sitesinde çakal kasa civic ilanlarını bul."
-    start_url = "https://www.jotform.com/myworkspace/"
+    objective = "Arabam.com sitesinde çakal kasa bmw ilanlarını bul."
+    # start_url = "https://www.jotform.com/myworkspace/"
     # start_url = "https://barinma.hacettepe.edu.tr/Account/Login?ReturnUrl=%2F"
-    # start_url = "https://www.arabam.com/"
+    start_url = "https://www.arabam.com/"
     
     agent_brain = ActionAgent()
 
@@ -57,16 +70,29 @@ async def main():
     print("--------------------------")
 
     previous_actions = []
-    max_turns = 15
-    user_response_for_next_turn = None
+    max_turns = 15                      #* Maksimum tur sayısı
+
+    # --- Bloklamayan girdi dinleyicisini başlat ---
+    try:
+        loop.add_reader(sys.stdin.fileno(), on_user_input)
+        print("🎤 User intervention is active. Type a command and press Enter at any time.")
+    except Exception as e:
+        print(f"⚠️ Could not start non-blocking input reader (may not work in all terminals): {e}")
 
     AUTO_MODE = True  # Set to True to skip user confirmations
+    user_response_for_next_turn = None  # To hold user responses when ASK_USER is triggered
 
     async with BrowserManager(headless=False) as browser:
         await browser.goto(start_url)
         
         for turn in range(1, max_turns + 1):
             print(f"\n==================== TURN {turn} ====================")
+
+            # Check if the user has typed anything since the last turn.
+            if user_input_buffer:
+                print(f"🙋 User intervention received: '{user_input_buffer}'")
+                user_response_for_next_turn = user_input_buffer
+                user_input_buffer = "" # Clear the buffer for the next input
 
             sleep_time = 1  # seconds
             print(f"⏳ Waiting {sleep_time} seconds for the page to update...")
@@ -82,6 +108,16 @@ async def main():
                 print("📸 Taking a screenshot for visual analysis...")
                 screenshot_bytes = await browser.page.screenshot()
                 screenshot_base64 = base64.b64encode(screenshot_bytes).decode()
+                
+                #* Debug: Save the full Base64 string to a file (can be large!)
+                # report_path = "debug_screenshot_base64.txt"
+                # with open(report_path, "a") as f:
+                #     f.write(f"--- TURN {turn} ---\n")
+                #     f.write(screenshot_base64)
+                #     f.write("\n\n") # Sonraki tur için boşluk bırak
+                # print(f"✅ Base64 string for turn {turn} appended to: {report_path}")
+                # print("-----------------------------------")
+                
 
             # --- 3. THINK ---
             print("🧠 Agent is 'thinking' about the next action...")
@@ -100,6 +136,11 @@ async def main():
 
             thought_process = response_json.get("full_thought_process", "No thoughts provided.")
             actions_to_take = response_json.get("actions", [])
+
+            page_summary = response_json.get("page_summary", "Agent did not provide a page summary.")
+
+            print("\n--- Agent's Page Summary ---")
+            print(page_summary)
             
             print("\n--- Agent's Thought Process ---")
             print(thought_process)
@@ -138,11 +179,19 @@ async def main():
             turn_outcomes_for_history = []
             
             for action in actions_to_take:
-                action_type = action.get("type")
-                target_index = action.get("target_element_index")
-                selector = analyzed_content[target_index].get("selector") if target_index is not None and 0 <= target_index < len(analyzed_content) else None
-                
                 try:
+                    action_type = action.get("type")
+                    target_index = action.get("target_element_index")
+                    value = action.get("type_value")
+                    target_element_data = analyzed_content[target_index] if target_index is not None and 0 <= target_index < len(analyzed_content) else None
+
+                    if target_element_data is None and action_type in ["CLICK", "TYPE"]:
+                            raise ValueError(f"Agent chose an invalid index: {target_index}")
+                    
+                    selector = target_element_data.get("selector")
+                    tag = target_element_data.get("tag")
+                    value = action.get("type_value")
+                    
                     # Debug çıktısını eylemden hemen önce göster
                     print("\n--- DEBUG INFO ---")
                     print(f"Attempting Action: {action_type}")
@@ -157,8 +206,11 @@ async def main():
                     if action_type == "CLICK":
                         await browser.click(selector)
                     elif action_type == "TYPE":
-                        await browser.type(selector, action.get("type_value"))
-                    
+                        if tag in ["input", "textarea"]:
+                            await browser.fill_text(selector, value)
+                        else:
+                            await browser.click_and_type(selector, value)
+                        
                     # Eylem başarılı olursa, zengin bir BAŞARI raporu oluştur.
                     turn_outcomes_for_history.append({
                         "action_type": action_type,
@@ -182,9 +234,6 @@ async def main():
             sleep_time = 3  # seconds
             print(f"⏳ Waiting {sleep_time} seconds for the page to update...")
             await asyncio.sleep(sleep_time)
-            
-            previous_actions.extend(actions_to_take)
-
 
 if __name__ == "__main__":
     try:
