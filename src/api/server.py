@@ -69,6 +69,7 @@ async def init_session(request: InitRequest) -> InitResponse:
         "objective": request.objective,
         "previous_actions": [],
         "last_proposed_actions": None,
+        "last_analyzed_content": None # Last analyzed content for page_summary 
     }
 
     response = InitResponse(session_id=session_id)
@@ -107,6 +108,7 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
                         "description": f"Action '{action_to_log.get('type')}' failed with error: {outcome.error_message}",
                     }
                 )
+    last_analyzed_content = session_data.get("last_analyzed_content")
 
     final_state = agent_brain.invoke(
         objective=session_data["objective"],
@@ -114,6 +116,7 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
         previous_actions=session_data["previous_actions"],
         user_response=request.user_response,
         screenshot_base64=request.screenshot_base64,
+        last_analyzed_content=last_analyzed_content
     )
 
     response_dict = final_state.get("final_response", {})
@@ -129,6 +132,8 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
         full_thought_process=response_dict.get("full_thought_process"),
         page_summary=response_dict.get("page_summary")
     )
+    # Update last analyzed content in session data
+    session_data["last_analyzed_content"] = final_state.get("analyzed_content")
 
     print(f"◀️  Sending response for session: {session_id}")
     return final_response

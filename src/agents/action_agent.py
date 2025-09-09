@@ -30,6 +30,7 @@ class AgentState(TypedDict):
     screenshot_base64: Optional[str] # Yeni state: Ekran görüntüsü (base64 formatında), opsiyonel
 
     retry_count: int          # How many times we've retried this state (for failure recovery)
+    last_analyzed_content: Optional[List[Dict]] # Son analiz edilen içerik, page_summary için
 
 class ActionAgent:
     """
@@ -152,6 +153,21 @@ class ActionAgent:
         # Hata geri bildirimi varsa, bunu da prompt'a ekliyoruz.
         error_feedback = state.get("error_feedback") or 'N/A. This is the first attempt for this state.'
 
+        # Instructions for page_summary based on whether the page has changed
+        current_analyzed_content = state['analyzed_content']
+        last_analyzed_content = state.get('last_analyzed_content')
+        
+        page_has_changed = self._calculate_view_similarity(
+            current_view=current_analyzed_content,
+            previous_view=last_analyzed_content,
+            threshold=0.8 # Eşik değerini doğrudan burada belirleyebiliriz
+        )
+
+        if page_has_changed:
+            summary_instruction = "The page view has changed. You MUST provide a new, detailed 'page_summary' for the current view."
+        else:
+            summary_instruction = "The page view has NOT changed significantly. You MUST set 'page_summary' to null or provide a very brief, one-sentence follow-up comment. DO NOT repeat your previous summary."
+
         prompt_content = f"""
         **High-Level Objective:**
         {state['objective']}
@@ -170,6 +186,9 @@ class ActionAgent:
         
         **Feedback on Your Last Attempt (if any):**
         {error_feedback or 'N/A. This is your first attempt.'}
+
+        **Summary Instruction:** 
+        {summary_instruction}
         """
 
         
@@ -263,7 +282,11 @@ class ActionAgent:
         else:
             return "valid"
     
-    def invoke(self, objective: str, visible_elements_html: List[str], previous_actions: List[Dict], user_response: Optional[str], screenshot_base64: Optional[str]) -> Dict:
+    def invoke(self, objective: str, 
+               visible_elements_html: List[str], 
+               previous_actions: List[Dict], user_response: Optional[str], 
+               screenshot_base64: Optional[str], 
+               last_analyzed_content: Optional[List[Dict]]) -> Dict:
         """
         The public method to run a single turn of the agent's reasoning loop.
         """
@@ -275,7 +298,8 @@ class ActionAgent:
             "chat_history": [], # chat_history is not used yet, but the state requires it
             "user_response": user_response,
             "screenshot_base64": screenshot_base64, # Girdiye ekran görüntüsünü ekle
-            "retry_count": 0 # Her yeni 'invoke' çağrısında deneme sayacını sıfırla
+            "retry_count": 0, # Her yeni 'invoke' çağrısında deneme sayacını sıfırla
+            "last_analyzed_content": last_analyzed_content
         }
         
         # Run the graph from start to finish with the given inputs
@@ -283,3 +307,34 @@ class ActionAgent:
         
         # Return the final response calculated by the last node
         return final_state
+    
+    # Helper function to calculate page similarity
+    def _calculate_view_similarity(self, current_view: List[Dict], previous_view: List[Dict], threshold: float = 0.8) -> bool:
+        """
+        Calculates the Jaccard similarity between the current and previous page views.
+        Returns True if the page is considered "changed", False otherwise.
+        """
+        if not previous_view:
+            # If there's no previous view, the page is considered new/changed.
+            return True
+        
+        try:
+            # Create a "fingerprint" for each element (e.g., "button:Create Form")
+            previous_fingerprints = {f"{el.get('tag')}:{el.get('text', '').strip()}" for el in previous_view}
+            current_fingerprints = {f"{el.get('tag')}:{el.get('text', '').strip()}" for el in current_view}
+            
+            # Calculate Jaccard similarity
+            intersection = len(previous_fingerprints.intersection(current_fingerprints))
+            union = len(previous_fingerprints.union(current_fingerprints))
+            
+            similarity = intersection / union if union > 0 else 1.0
+            
+            print(f"   - Page similarity score: {similarity:.2f} (Threshold: {threshold})")
+            
+            # If similarity is below the threshold, the page has changed.
+            return similarity < threshold
+
+        except Exception as e:
+            print(f"⚠️ Could not calculate page similarity: {e}")
+            # In case of error, assume the page has changed to be safe.
+            return True

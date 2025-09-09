@@ -42,15 +42,15 @@ async def main():
     VISION_ENABLED = config.get('features', {}).get('vision_enabled', False)
     print(f"👁️ Vision Mode Enabled: {VISION_ENABLED}")
 
-    # objective = "Create a new form, and design it like a feedback form, and publish."
+    objective = "Create a new form, and design it like a feedback form, and publish."
     # objective = "Create a new ai agent on Jotform WebSite. Describe it as an algorithm tutor."
     # objective = "Create a new form on Jotform WebSite. Create a heading and type 'Hello World' in it and publish."
     # objective = "Create a new app on Jotform WebSite. Create a text and type 'Hello World' in it and publish."
     # objective = "Hacettepe yurt sayfasına git ve benim adıma ödeme yap."
-    objective = "Arabam.com sitesinde çakal kasa bmw ilanlarını bul."
-    # start_url = "https://www.jotform.com/myworkspace/"
+    # objective = "Arabam.com sitesinde çakal kasa bmw ilanlarını bul."
+    start_url = "https://www.jotform.com/myworkspace/"
     # start_url = "https://barinma.hacettepe.edu.tr/Account/Login?ReturnUrl=%2F"
-    start_url = "https://www.arabam.com/"
+    # start_url = "https://www.arabam.com/"
     
     agent_brain = ActionAgent()
 
@@ -71,6 +71,7 @@ async def main():
 
     previous_actions = []
     max_turns = 15                      #* Maksimum tur sayısı
+    last_analyzed_content_for_next_turn = None # Son analiz edilen içerik, başlangıçta yok
 
     # --- Bloklamayan girdi dinleyicisini başlat ---
     try:
@@ -126,13 +127,15 @@ async def main():
                 visible_elements_html=visible_elements_html,
                 previous_actions=previous_actions,
                 user_response=user_response_for_next_turn,
-                screenshot_base64=screenshot_base64
+                screenshot_base64=screenshot_base64,
+                last_analyzed_content=last_analyzed_content_for_next_turn
             )
             user_response_for_next_turn = None
 
             # --- 4. OBSERVE ---
             response_json = final_state.get("final_response", {})
             analyzed_content = final_state.get("analyzed_content", []) # Get the analysis result
+            last_analyzed_content_for_next_turn = analyzed_content
 
             thought_process = response_json.get("full_thought_process", "No thoughts provided.")
             actions_to_take = response_json.get("actions", [])
