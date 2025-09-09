@@ -102,6 +102,8 @@ class AgentTurnResponse(BaseModel):
     actions: List[Action]
     overall_explanation_of_bundle: str = Field(..., alias="overallExplanationOfBundle")
     full_thought_process: Optional[str] = Field(None, alias="fullThoughtProcess")
+    # Eğitim amaçlı olarak, eğer istenirse, backend sayfanın genel bir özetini de sağlayabilir.
+    page_summary: Optional[str] = Field(None, alias="pageSummary", description="O anki sayfa hakkında genel, eğitici bir özet veya ipucu.")
     
     class Config:
         populate_by_name = True
