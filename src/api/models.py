@@ -11,8 +11,10 @@ class InitRequest(BaseModel):
 
 
 class InitResponse(BaseModel):
-    session_id: str = Field(..., alias="sessionId", description="Oturum için oluşturulan benzersiz ID.")
-    
+    session_id: str = Field(
+        ..., alias="sessionId", description="Oturum için oluşturulan benzersiz ID."
+    )
+
     class Config:
         populate_by_name = True
 
@@ -29,7 +31,7 @@ class ExecutedAction(BaseModel):
 
     status: str = Field(..., description="'SUCCESS' veya 'FAIL'")
     error_message: Optional[str] = Field(None, alias="errorMessage")  # Eğer FAIL ise
-    
+
     class Config:
         populate_by_name = True
 
@@ -45,18 +47,23 @@ class AgentTurnRequest(BaseModel):
         alias="lastTurnOutcome",
         description="Bir önceki turda gerçekleştirilen eylemlerin başarı/hata durumu.",
     )
-    
+
     class Config:
         populate_by_name = True
 
-    # Optional: Eğer vision_enabled ise, frontend ekran görüntüsünü de gönderebilir 
-    screenshot_base64: Optional[str] = Field(None, description="Sayfanın o anki ekran görüntüsü (base64 formatında). Opsiyonel.")
+    # Optional: Eğer vision_enabled ise, frontend ekran görüntüsünü de gönderebilir
+    screenshot_base64: Optional[str] = Field(
+        None,
+        alias="screenshotBase64",
+        description="Sayfanın o anki ekran görüntüsü (base64 formatında). Opsiyonel.",
+    )
+
 
 # ActionHistory artık sadece backend'in dahili olarak kullandığı bir yapı
 class ActionHistory(BaseModel):
     action_type: str = Field(..., alias="actionType")
     description: str
-    
+
     class Config:
         populate_by_name = True
 
@@ -83,11 +90,21 @@ class Action(BaseModel):
         description="The index of the target element within the 'visible_elements_html' list.",
     )
 
-    type_value: Optional[str] = Field(None, alias="typeValue", description="The text to be typed for TYPE actions.")
-    user_question: Optional[str] = Field(None, alias="userQuestion", description="The question to ask the user for ASK_USER actions.")
-    status_message: Optional[str] = Field(None, alias="statusMessage", description="The final status message for FINISH or FAIL actions.")
+    type_value: Optional[str] = Field(
+        None, alias="typeValue", description="The text to be typed for TYPE actions."
+    )
+    user_question: Optional[str] = Field(
+        None,
+        alias="userQuestion",
+        description="The question to ask the user for ASK_USER actions.",
+    )
+    status_message: Optional[str] = Field(
+        None,
+        alias="statusMessage",
+        description="The final status message for FINISH or FAIL actions.",
+    )
     explanation: str
-    
+
     class Config:
         populate_by_name = True
 

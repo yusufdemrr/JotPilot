@@ -63,8 +63,6 @@ async def health_check():
 @app.post("/agent/init", response_model=InitResponse)
 async def init_session(request: InitRequest) -> InitResponse:
     # Print request payload as raw JSON
-    print(f"\n📥 /agent/init REQUEST JSON:")
-    print(json.dumps(request.dict(), indent=2))
 
     session_id = f"session-{uuid.uuid4()}"
     SESSION_CACHE[session_id] = {
@@ -75,9 +73,6 @@ async def init_session(request: InitRequest) -> InitResponse:
 
     response = InitResponse(session_id=session_id)
 
-    # Print response payload as raw JSON
-    print(f"\n📤 /agent/init RESPONSE JSON:")
-    print(json.dumps(response.dict(), indent=2))
     print(f"✨ New session created: {session_id}")
 
     return response
@@ -86,10 +81,6 @@ async def init_session(request: InitRequest) -> InitResponse:
 @app.post("/agent/next_action", response_model=AgentTurnResponse)
 async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
     session_id = request.session_id
-
-    # Print request payload as raw JSON
-    print(f"\n📥 /agent/next_action REQUEST JSON:")
-    print(json.dumps(request.dict(), indent=2))
 
     print(f"\n▶️  Processing request for session: {session_id}")
 
@@ -122,7 +113,7 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
         visible_elements_html=request.visible_elements_html,
         previous_actions=session_data["previous_actions"],
         user_response=request.user_response,
-        screenshot_base64=request.screenshot_base64
+        screenshot_base64=request.screenshot_base64,
     )
 
     response_dict = final_state.get("final_response", {})
@@ -137,10 +128,6 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
         ),
         full_thought_process=response_dict.get("full_thought_process"),
     )
-
-    # Print response payload as raw JSON
-    print(f"\n📤 /agent/next_action RESPONSE JSON:")
-    print(json.dumps(final_response.dict(), indent=2))
 
     print(f"◀️  Sending response for session: {session_id}")
     return final_response
