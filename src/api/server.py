@@ -127,6 +127,7 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
             "overall_explanation_of_bundle", ""
         ),
         full_thought_process=response_dict.get("full_thought_process"),
+        page_summary=response_dict.get("page_summary")
     )
 
     print(f"◀️  Sending response for session: {session_id}")
