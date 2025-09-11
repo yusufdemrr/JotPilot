@@ -1,12 +1,12 @@
-# src/api/server.py (TEMİZLENMİŞ VE MODÜLER VERSİYON)
+# src/api/server.py
 
 import sys
 import os
 import uuid
-import json
 from typing import Dict, Any
 from dotenv import load_dotenv
 
+# Add project root to the Python path
 sys.path.append(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
@@ -21,21 +21,20 @@ from src.api.models import (
     AgentTurnRequest,
     AgentTurnResponse,
 )
-
-# Hata yöneticilerini middleware dosyasından import ediyoruz
+# Import exception handlers from the middleware file
 from src.api.middleware import http_exception_handler, general_exception_handler
 
-# --- UYGULAMA BAŞLANGICI ---
-print("🚀 Sunucu başlatılıyor ve AI Agent hazırlanıyor...")
+# --- APPLICATION STARTUP ---
+print("🚀 Initializing server and preparing AI Agent...")
 agent_brain = ActionAgent()
 app = FastAPI(
     title="Jotform AI Agent API",
     version="1.4.0",
-    # Python'un snake_case'ini JSON'un camelCase'ine çevirmek için Pydantic alias'ları kullanıyoruz
-    # Bu, model seviyesinde otomatik case conversion sağlar.
+    # We use Pydantic aliases to convert Python's snake_case to JSON's camelCase.
+    # This provides automatic case conversion at the model level.
 )
 
-# --- MIDDLEWARE ve HATA YÖNETİCİLERİNİ EKLEME ---
+# --- ADDING MIDDLEWARE AND EXCEPTION HANDLERS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,43 +45,41 @@ app.add_middleware(
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
-print("✅ Middleware'ler (CORS) ve hata yöneticileri eklendi.")
+print("✅ Middlewares (CORS) and exception handlers added.")
 
 # --- IN-MEMORY CACHE ---
 SESSION_CACHE: Dict[str, Any] = {}
-print("✅ Sunucu, Agent ve in-memory session cache hazır.")
+print("✅ Server, Agent, and in-memory session cache are ready.")
+
 
 # --- API ENDPOINTS ---
 
-
 @app.get("/health")
 async def health_check():
+    """Provides a simple health check endpoint."""
     return {"status": "healthy", "version": app.version}
 
 
 @app.post("/agent/init", response_model=InitResponse)
 async def init_session(request: InitRequest) -> InitResponse:
-    # Print request payload as raw JSON
-
+    """Initializes a new agent session with a given objective."""
     session_id = f"session-{uuid.uuid4()}"
     SESSION_CACHE[session_id] = {
         "objective": request.objective,
         "previous_actions": [],
         "last_proposed_actions": None,
-        "last_analyzed_content": None # Last analyzed content for page_summary 
+        "last_analyzed_content": None, # For comparing page views
     }
 
     response = InitResponse(session_id=session_id)
-
     print(f"✨ New session created: {session_id}")
-
     return response
 
 
 @app.post("/agent/next_action", response_model=AgentTurnResponse)
 async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
+    """Processes the next turn for an existing agent session."""
     session_id = request.session_id
-
     print(f"\n▶️  Processing request for session: {session_id}")
 
     session_data = SESSION_CACHE.get(session_id)
@@ -92,6 +89,7 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
     print(f"   - Updating history based on frontend's report...")
     last_proposed = session_data.get("last_proposed_actions")
     if last_proposed and request.last_turn_outcome:
+        # Update the history of executed actions based on the frontend's success/fail report
         for i, outcome in enumerate(request.last_turn_outcome):
             action_to_log = last_proposed[i]
             if outcome.status.upper() == "SUCCESS":
@@ -108,8 +106,10 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
                         "description": f"Action '{action_to_log.get('type')}' failed with error: {outcome.error_message}",
                     }
                 )
+    
     last_analyzed_content = session_data.get("last_analyzed_content")
 
+    # Invoke the agent's brain to decide the next set of actions
     final_state = agent_brain.invoke(
         objective=session_data["objective"],
         visible_elements_html=request.visible_elements_html,
@@ -121,8 +121,12 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
 
     response_dict = final_state.get("final_response", {})
     new_actions = response_dict.get("actions", [])
+    
+    # Cache the newly proposed actions and the latest page analysis for the next turn
     session_data["last_proposed_actions"] = new_actions
+    session_data["last_analyzed_content"] = final_state.get("analyzed_content")
 
+    # Construct the response for the frontend
     final_response = AgentTurnResponse(
         session_id=session_id,
         actions=new_actions,
@@ -132,8 +136,6 @@ async def next_action(request: AgentTurnRequest) -> AgentTurnResponse:
         full_thought_process=response_dict.get("full_thought_process"),
         page_summary=response_dict.get("page_summary")
     )
-    # Update last analyzed content in session data
-    session_data["last_analyzed_content"] = final_state.get("analyzed_content")
-
-    print(f"◀️  Sending response for session: {session_id}")
+    
+    print(f"◀️  Sending response with {len(new_actions)} action(s) for session: {session_id}")
     return final_response

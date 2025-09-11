@@ -3,7 +3,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
-# --- /agent/init Endpoint Modelleri ---
+# --- /agent/init Endpoint Models ---
 
 
 class InitRequest(BaseModel):
@@ -19,18 +19,18 @@ class InitResponse(BaseModel):
         populate_by_name = True
 
 
-# --- /agent/next_action Endpoint Modelleri ---
+# --- /agent/next_action Endpoint Models ---
 
 # --------------------------------------------------------------------------
-# Frontend'den Backend'e Gönderilecek Veri Modelleri (API Request)
+# Data Models Sent from Frontend to Backend (API Request)
 # --------------------------------------------------------------------------
 
 
 class ExecutedAction(BaseModel):
-    """Frontend, bir önceki turun sonucunu bu basit modelle raporlar."""
+    """Reports the result of the previous turn from the frontend."""
 
     status: str = Field(..., description="'SUCCESS' veya 'FAIL'")
-    error_message: Optional[str] = Field(None, alias="errorMessage")  # Eğer FAIL ise
+    error_message: Optional[str] = Field(None, alias="errorMessage")  # if status is FAIL
 
     class Config:
         populate_by_name = True
@@ -41,7 +41,7 @@ class AgentTurnRequest(BaseModel):
     visible_elements_html: List[str] = Field(..., alias="visibleElementsHtml")
     user_response: Optional[str] = Field(None, alias="userResponse")
 
-    # Frontend artık sadece bir önceki turun sonucunu gönderir, detayları değil.
+    # The frontend now only sends the outcome of the previous turn, not all the details.
     last_turn_outcome: List[ExecutedAction] = Field(
         ...,
         alias="lastTurnOutcome",
@@ -51,7 +51,7 @@ class AgentTurnRequest(BaseModel):
     class Config:
         populate_by_name = True
 
-    # Optional: Eğer vision_enabled ise, frontend ekran görüntüsünü de gönderebilir
+    # Optional: If vision is enabled, the frontend can also send a screenshot.
     screenshot_base64: Optional[str] = Field(
         None,
         alias="screenshotBase64",
@@ -59,7 +59,7 @@ class AgentTurnRequest(BaseModel):
     )
 
 
-# ActionHistory artık sadece backend'in dahili olarak kullandığı bir yapı
+# ActionHistory is now an internal structure used only by the backend.
 class ActionHistory(BaseModel):
     action_type: str = Field(..., alias="actionType")
     description: str
@@ -69,7 +69,7 @@ class ActionHistory(BaseModel):
 
 
 # --------------------------------------------------------------------------
-# Backend'den Frontend'e Gönderilecek Veri Modelleri (API Response)
+# Data Models Sent from Backend to Frontend (API Response)
 # --------------------------------------------------------------------------
 
 
@@ -119,7 +119,7 @@ class AgentTurnResponse(BaseModel):
     actions: List[Action]
     overall_explanation_of_bundle: str = Field(..., alias="overallExplanationOfBundle")
     full_thought_process: Optional[str] = Field(None, alias="fullThoughtProcess")
-    # Eğitim amaçlı olarak, eğer istenirse, backend sayfanın genel bir özetini de sağlayabilir.
+    # For educational purposes, the backend can optionally provide a general summary of the page.
     page_summary: Optional[str] = Field(None, alias="pageSummary", description="O anki sayfa hakkında genel, eğitici bir özet veya ipucu.")
     
     class Config:
