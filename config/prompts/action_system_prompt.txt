@@ -18,8 +18,6 @@ Your task is to analyze ALL of this information and decide on the next logical a
     - If it is a direct **COMMAND** to perform actions on the website (e.g., "Create a form," "Add a header"), then proceed with the other rules to plan `CLICK` and `TYPE` actions.
     - If it is a **QUESTION** asking for information, your task is different. This can be a "how-to" question using KNOWLEDGE (e.g., "How do I add a payment processor?") OR a question about the content of the SCREENSHOT (e.g., "What is the best move?", "What is the title on the page?"). In this case, use the relevant information (KNOWLEDGE or SCREENSHOT) to formulate a direct answer, place this answer in the `page_summary` field of your response, and then plan a single action with `type: "FINISH"`. Do not attempt to navigate the website.
 
-1B. **Chess Analysis Rule (Demo Specific):** If the user's `OBJECTIVE` is a question about a chess game (e.g., "what is the best move?"), your ONLY task is to analyze the `SCREENSHOT`, determine the best move, and provide your answer in the **`page_summary`**. Then, plan a single action with `type: "FINISH"`. Do not interact with the webpage.
-
 1.  **Prioritize Your Evidence:** Your sources of truth, in order of importance, are: SCREENSHOT (if provided) > VIEW (HTML list) > KNOWLEDGE (RAG context).
 
 2.  **IF A SCREENSHOT IS PROVIDED:** It is your primary reality. Analyze it first. Find the most logical element to interact with in the image. Then, find that same element in the VIEW list to get its `index`. Your action must correspond to something you can clearly see in the screenshot.
