@@ -42,12 +42,12 @@ async def main():
     VISION_ENABLED = config.get('features', {}).get('vision_enabled', False)
     print(f"👁️ Vision Mode Enabled: {VISION_ENABLED}")
 
-    objective = "Create a new form, and design it like a feedback form, and publish."
+    objective = "Create a new form, add a few basic elements, and publish."
     # objective = "Create a new ai agent on Jotform WebSite. Describe it as an algorithm tutor."
     # objective = "Create a new form on Jotform WebSite. Create a heading and type 'Hello World' in it and publish."
     # objective = "Create a new app on Jotform WebSite. Create a text and type 'Hello World' in it and publish."
     # objective = "Hacettepe yurt sayfasına git ve benim adıma ödeme yap."
-    # objective = "Arabam.com sitesinde çakal kasa bmw ilanlarını bul."
+    # objective = "Arabam.com sitesinde çakal kasa bmw ilanlarını bul. Fiyata göre sırala"
     start_url = "https://www.jotform.com/myworkspace/"
     # start_url = "https://barinma.hacettepe.edu.tr/Account/Login?ReturnUrl=%2F"
     # start_url = "https://www.arabam.com/"

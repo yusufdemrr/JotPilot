@@ -309,6 +309,7 @@ class ActionAgent:
         return final_state
     
     # Helper function to calculate page similarity
+    # This function is not directly related to the agent's decision-making ability. 
     def _calculate_view_similarity(self, current_view: List[Dict], previous_view: List[Dict], threshold: float = 0.8) -> bool:
         """
         Calculates the Jaccard similarity between the current and previous page views.
