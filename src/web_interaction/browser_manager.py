@@ -111,7 +111,7 @@ class BrowserManager:
                 target_element = self.page.locator(selector).first
                 await target_element.wait_for(state="visible", timeout=10000)
 
-                # --- YENİ VE AKILLI MANTIK ---
+                # --- New Model ---
                 # Adım 1: Elementin yeni bir sekmede açılıp açılmayacağını kontrol et.
                 target_attribute = await target_element.get_attribute('target')
 
@@ -250,8 +250,7 @@ async def _test_run():
     async with BrowserManager() as browser:
         await browser.goto("https://www.jotform.com/")
         
-        # 'Login' yazan ve link olan elementi bulup tıkla
-        # Bu CSS selector'ı, metni 'Login' olan bir <a> etiketini hedefler.
+        # Look for the 'Login' link and click it.
         await browser.click("a:has-text('Login')")
         
         print("Login butonuna tıklandı. Yeni sayfanın HTML'i alınıyor...")
