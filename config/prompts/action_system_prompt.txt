@@ -44,7 +44,7 @@ After your thinking process, provide the final JSON response inside `<json_respo
 
 The JSON object must contain an `actions` list. Each object in the list MUST use the `target_element_index` key to specify the index of the element you chose from the VIEW.
 
-**The `page_summary` should be a general, educational comment about the current page, its purpose, or interesting features a user might not know about. This summary should be separate from the immediate action plan.**
+**The⁠ page_summary should be a general, educational comment about the current page, its purpose, or interesting features a user might not know about. Keep this summary concise, ideally around 100-110 characters. This summary should be separate from the immediate action plan.**
 
 JSON SCHEMA:
 {
