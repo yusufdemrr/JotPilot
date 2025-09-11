@@ -5,48 +5,57 @@ from typing import List, Dict, Any
 import numpy as np
 from qdrant_client import QdrantClient, models
 
-# Temel loglama ayarları
+
+
+# Basic logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 class QdrantManager:
-    """Qdrant veritabanı işlemlerini yöneten basit arayüz."""
+    """A simple interface for managing operations in a Qdrant database."""
     
     def __init__(self, config: Dict[str, Any]):
         self.logger = logging.getLogger("QdrantManager")
         
-        # Gerekli ayarları config'den oku
+        # Read necessary settings from the config
         connection_config = config.get('connection', {})
         collection_config = config.get('collection', {})
 
-        timeout = connection_config.get('timeout', 60.0) # Varsayılan 60 saniye
+        timeout = connection_config.get('timeout', 60.0) # Default 60 seconds
+
+        # --- FUTURE IMPROVEMENT ---
+        # TODO: Add support for Qdrant Cloud connection using settings from config.yaml.
+        # This would involve checking for 'connection.cloud_url' and an API key.
+        # If they exist, initialize the client with `url=...` and `api_key=...`,
+        # otherwise, fall back to the local connection below. This allows switching
+        # between local and cloud environments without code changes.
         
-        # Sadece yerel bağlantıya odaklanıyoruz
+        # Focusing on local connection
         host = connection_config.get('host', 'localhost')
         port = connection_config.get('port', 6333)
         
-        # Qdrant client'ı başlat
+        # Initialize Qdrant client
         self.client = QdrantClient(host=host, port=port, timeout=timeout)
-        self.logger.info(f"Qdrant'a bağlanıldı: http://{host}:{port} (Timeout: {timeout}s)")
+        self.logger.info(f"Connected to Qdrant: http://{host}:{port} (Timeout: {timeout}s)")
         
         self.collection_name = collection_config.get('name', 'jotform_help_vectors')
         
-        # Vektör boyutu (embedding modeline göre değişir, config'den alınmalı)
-        # config.yaml'daki 'models.primary.dimensions' ile eşleşmelidir.
+        # Vector size depends on the embedding model and should be taken from config.
+        # It must match 'models.primary.dimensions' in config.yaml.
         self.vector_size = collection_config.get('vector_size', 768)
 
         self.batch_size = config.get('processing', {}).get('batch_size', 100)
         
-        # Koleksiyonun var olup olmadığını kontrol et ve gerekirse oluştur
+        # Check if the collection exists and create it if necessary
         self._ensure_collection_exists()
 
     def _ensure_collection_exists(self):
-        """Koleksiyonun var olduğundan emin olur, yoksa oluşturur."""
+        """Ensures the collection exists, creating it if it doesn't."""
         try:
             collections_response = self.client.get_collections()
             collection_names = [c.name for c in collections_response.collections]
             
             if self.collection_name not in collection_names:
-                self.logger.info(f"'{self.collection_name}' koleksiyonu bulunamadı, yeni bir tane oluşturuluyor...")
+                self.logger.info(f"Collection '{self.collection_name}' not found, creating a new one...")
                 self.client.create_collection(
                     collection_name=self.collection_name,
                     vectors_config=models.VectorParams(
@@ -54,29 +63,29 @@ class QdrantManager:
                         distance=models.Distance.COSINE
                     )
                 )
-                self.logger.info("✅ Koleksiyon başarıyla oluşturuldu.")
+                self.logger.info("✅ Collection created successfully.")
             else:
-                self.logger.info(f"✅ '{self.collection_name}' koleksiyonu zaten mevcut.")
+                self.logger.info(f"✅ Collection '{self.collection_name}' already exists.")
         except Exception as e:
-            self.logger.error(f"Koleksiyon kontrolü/oluşturma sırasında hata: {e}")
+            self.logger.error(f"Error during collection check/creation: {e}")
             raise
 
     def insert_vectors(self, chunks_data: List[Dict[str, Any]], embeddings: np.ndarray):
         """
-        Chunk verilerini ve embedding'lerini Qdrant'a yükler.
+        Uploads chunk data and their corresponding embeddings to Qdrant.
         """
         if len(chunks_data) != len(embeddings):
-            self.logger.error("Chunk sayısı ile embedding sayısı eşleşmiyor! Yükleme iptal edildi.")
+            self.logger.error("Number of chunks does not match the number of embeddings! Upload canceled.")
             return
 
-        self.logger.info(f"{len(chunks_data)} adet vektör Qdrant'a yükleniyor...")
+        self.logger.info(f"Uploading {len(chunks_data)} vectors to Qdrant...")
         
-        # Qdrant'a yüklenecek "noktaları" (points) hazırla
+        # Prepare the 'points' to be uploaded to Qdrant
         points_to_insert = [
             models.PointStruct(
-                id=chunk['id'], # Bizim chunker'da ürettiğimiz UUID
+                id=chunk['id'], # The UUID generated in our chunker
                 vector=vector.tolist(),
-                payload={ # Payload, vektör dışındaki tüm meta verilerdir
+                payload={ # Payload is all metadata other than the vector
                     "content": chunk['content'],
                     "metadata": chunk['metadata']
                 }
@@ -84,7 +93,7 @@ class QdrantManager:
             for chunk, vector in zip(chunks_data, embeddings)
         ]
         
-        # Tüm noktaları tek seferde değil, batch_size'a göre bölerek yüklüyoruz.
+        # Uploading points in batches, not all at once.
         try:
             for i in range(0, len(points_to_insert), self.batch_size):
                 batch = points_to_insert[i : i + self.batch_size]
@@ -93,26 +102,26 @@ class QdrantManager:
                     points=batch,
                     wait=True
                 )
-                self.logger.info(f"Batch {i//self.batch_size + 1} ({len(batch)} vektör) yüklendi...")
+                self.logger.info(f"Batch {i//self.batch_size + 1} ({len(batch)} vectors) uploaded...")
             
-            self.logger.info(f"✅ {len(points_to_insert)} vektör başarıyla yüklendi.")
+            self.logger.info(f"✅ Successfully uploaded {len(points_to_insert)} vectors.")
         except Exception as e:
-            self.logger.error(f"Vektör yüklemesi sırasında hata: {e}")
+            self.logger.error(f"Error during vector upload: {e}")
             raise
             
     def search(self, query_vector: List[float], limit: int = 5) -> List[models.ScoredPoint]:
         """
-        Verilen bir sorgu vektörüne en benzer sonuçları bulur.
+        Finds the most similar results for a given query vector.
         """
-        self.logger.info(f"'{self.collection_name}' içinde arama yapılıyor...")
+        self.logger.info(f"Searching in collection '{self.collection_name}'...")
         try:
             search_results = self.client.search(
                 collection_name=self.collection_name,
                 query_vector=query_vector,
                 limit=limit
             )
-            self.logger.info(f"{len(search_results)} adet sonuç bulundu.")
+            self.logger.info(f"Found {len(search_results)} results.")
             return search_results
         except Exception as e:
-            self.logger.error(f"Arama sırasında hata: {e}")
+            self.logger.error(f"Error during search: {e}")
             return []

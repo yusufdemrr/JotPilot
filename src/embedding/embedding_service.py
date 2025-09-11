@@ -1,4 +1,4 @@
-# embedding_service.py (NİHAİ VE ESNEK VERSİYON)
+# embedding_service.py
 
 import json
 import os

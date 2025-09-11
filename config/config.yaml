@@ -24,6 +24,7 @@ crawling:
 chunking:
   target_chunk_size: 400          # Target tokens per chunk
   overlap_size: 50                # Overlap tokens between chunks
+  tokenizer_model: "gpt-3.5-turbo"      # Tokenizer model for counting tokens
 
   # Input/Output
   input_file: "data/raw/jotform_help_content.txt"
