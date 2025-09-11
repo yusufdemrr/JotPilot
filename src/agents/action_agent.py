@@ -18,19 +18,19 @@ class AgentState(TypedDict):
     Represents the state of our agent's thought process in the LangGraph.
     This dictionary is passed between nodes, each node updating parts of it.
     """
-    objective: str                  # The main goal from the user.
-    visible_elements_html: List[str]      # Raw HTML strings of visible elements on the page.
-    analyzed_content: List[Dict]    # The structured analysis of the page content.
-    previous_actions: List[Dict]    # A history of actions taken so far.
-    rag_context: str                # Relevant info from our knowledge base (fetched by rag_tool).
-    final_response: Optional[Dict]  # The final JSON response to be sent to the frontend.
-    chat_history: List[BaseMessage] # Not used in this version, but good for future memory.
-    user_response: Optional[str]    # Kullanıcıdan gelen cevabı tutar.
-    error_feedback: Optional[str] # Yeni state: LLM'e geri bildirim için
-    screenshot_base64: Optional[str] # Yeni state: Ekran görüntüsü (base64 formatında), opsiyonel
+    objective: str                      # The main goal from the user.
+    visible_elements_html: List[str]    # Raw HTML strings of visible elements on the page.
+    analyzed_content: List[Dict]        # The structured analysis of the page content.
+    previous_actions: List[Dict]        # A history of actions taken so far.
+    rag_context: str                    # Relevant info from our knowledge base (fetched by rag_tool).
+    final_response: Optional[Dict]      # The final JSON response to be sent to the frontend.
+    chat_history: List[BaseMessage]     # Not used in this version, but good for future memory.
+    user_response: Optional[str]        # User's answer to a previous question, if any.
+    error_feedback: Optional[str]       # Feedback on why the last decision was invalid, if applicable.
+    screenshot_base64: Optional[str]    # Optional screenshot of the current page in base64 format.
 
     retry_count: int          # How many times we've retried this state (for failure recovery)
-    last_analyzed_content: Optional[List[Dict]] # Son analiz edilen içerik, page_summary için
+    last_analyzed_content: Optional[List[Dict]] # last analyzed_content to compare page changes
 
 class ActionAgent:
     """
@@ -75,8 +75,8 @@ class ActionAgent:
             "analyze_page",
             self.should_retrieve_rag,
             {
-                "continue_to_rag": "retrieve_rag_context", # RAG aktifse bu yola git
-                "skip_rag": "plan_and_think"           # RAG pasifse bu adımı atla, doğrudan düşünmeye geç
+                "continue_to_rag": "retrieve_rag_context", # if RAG is enabled, go fetch context
+                "skip_rag": "plan_and_think"           # if not, skip directly to thinking
             }
         )
 
@@ -201,7 +201,7 @@ class ActionAgent:
 
         print("--- Parsing and Enriching LLM Response ---")
         
-        # Step D: Parse the LLM's response and enrich it with the real selector.
+        # Step 4: Parse the LLM's response and enrich it with the real selector.
         try:
             thinking_match = re.search(r"<thinking>(.*?)</thinking>", llm_response_str, re.DOTALL)
             thought_process = thinking_match.group(1).strip() if thinking_match else ""
