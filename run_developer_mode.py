@@ -44,7 +44,18 @@ async def main():
 
     # --- Define the main objective for the agent ---
     objective = "Create a new form, add a few basic elements, and publish."
+    # objective = "Who is the CEO of this company?"
+    # objective = "Create a course registration form suitable for any school or institution."
+    # objective = "Ekşi sözlüğe sıfırdan kayıt ol sonasında bir entry gir istediğin konuda."
+    # objective = "Create a new ai agent on Jotform WebSite. Describe it as an algorithm tutor."
+    # objective = "Create a new form on Jotform WebSite. Create a heading and type 'Hello World' in it and publish."
+    # objective = "Create a new app on Jotform WebSite. Create a text and type 'Hello World' in it and publish."
+    # objective = "Hacettepe yurt sayfasına git ve benim adıma ödeme yap."
+    # objective = "Arabam.com sitesinde çakal kasa bmw ilanlarını bul. Fiyata göre sırala"
     start_url = "https://www.jotform.com/myworkspace/"
+    # start_url = "https://eksisozluk.com/"
+    # start_url = "https://barinma.hacettepe.edu.tr/Account/Login?ReturnUrl=%2F"
+    # start_url = "https://www.arabam.com/"
     
     agent_brain = ActionAgent()
 
@@ -142,6 +153,9 @@ async def main():
             if action_type in ["FINISH", "FAIL"]:
                 final_message = first_action.get("status_message")
                 print(f"\n🏁 Agent finished or failed: {final_message}")
+                sleep_time = 3
+                print(f"⏳ Waiting {sleep_time} seconds before closing...")
+                await asyncio.sleep(sleep_time)
                 break
             
             if action_type == "ASK_USER":
