@@ -43,8 +43,8 @@ async def main():
     print(f"👁️ Vision Mode Enabled: {VISION_ENABLED}")
 
     # --- Define the main objective for the agent ---
-    objective = "Create a new form, add a few basic elements, and publish."
-    # objective = "Who is the CEO of this company?"
+    # objective = "Create a new form, add a few basic elements, and publish."
+    objective = "Who is the CEO of Jotform?"
     # objective = "Create a course registration form suitable for any school or institution."
     # objective = "Ekşi sözlüğe sıfırdan kayıt ol sonasında bir entry gir istediğin konuda."
     # objective = "Create a new ai agent on Jotform WebSite. Describe it as an algorithm tutor."
