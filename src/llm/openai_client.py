@@ -5,55 +5,57 @@ import logging
 from typing import Dict, Any, Optional
 import openai
 
-# Temel loglama ayarları
+# Basic logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 class OpenAIClient:
     """
-    OpenAI API'si ile iletişimi yöneten basit bir istemci.
+    A simple client to manage communication with the OpenAI API.
     """
     def __init__(self, config: Dict[str, Any]):
         self.logger = logging.getLogger("OpenAIClient")
 
+        # A map of model capabilities, primarily for vision support.
         self.model_capabilities = {
             "gpt-4o": {"vision": True},
-            "gpt-4o-mini": {"vision": False},  # Küçük, görsel desteklemeyen
-            "gpt-4.1": {"vision": True},       # Multimodal (metin + resim)
-            "gpt-4.1-mini": {"vision": True},  # Multimodal, hızlı sürüm
+            "gpt-4o-mini": {"vision": False},  # Small, does not support vision
+            "gpt-4.1": {"vision": True},       # Multimodal (text + image)
+            "gpt-4.1-mini": {"vision": True},  # Multimodal, fast version
             "gpt-3.5-turbo": {"vision": False}
         }
         
-        # API anahtarını ortam değişkenlerinden (environment variable) oku
+        # Read the API key from environment variables
         api_key_env = config.get('api_key_env', 'OPENAI_API_KEY')
         api_key = os.getenv(api_key_env)
         
         if not api_key:
-            self.logger.error(f"🔴 '{api_key_env}' ortam değişkeni bulunamadı. Lütfen API anahtarınızı ayarlayın.")
-            raise ValueError("OpenAI API anahtarı ayarlanmamış.")
+            self.logger.error(f"🔴 Environment variable '{api_key_env}' not found. Please set your API key.")
+            raise ValueError("OpenAI API key is not set.")
             
-        # OpenAI istemcisini başlat
+        # Initialize the OpenAI client
         self.client = openai.OpenAI(api_key=api_key)
         
-        # Model ve diğer ayarları config'den al
+        # Get model and other settings from the config
         self.model = config.get('model', 'gpt-4o')
         self.temperature = config.get('temperature', 0.7)
         self.max_tokens = config.get('max_tokens', 2000)
         
-        self.logger.info(f"OpenAI istemcisi '{self.model}' modeli ile başlatıldı.")
+        self.logger.info(f"OpenAI client initialized with model '{self.model}'.")
 
     def has_vision_capability(self) -> bool:
         """Checks if the currently configured model supports vision."""
-        # Modeli yetenek haritasında ara, bulamazsan güvenli olması için False döndür.
+        # Look for the model in the capabilities map; return False as a safe default if not found.
         return self.model_capabilities.get(self.model, {}).get("vision", False)
 
     def get_completion(self, system_prompt: str, user_prompt: str, image_base64: Optional[str] = None) -> str:
         """
-        Verilen prompt'lar ile OpenAI'den bir cevap üretir.
+        Generates a response from OpenAI using the given prompts.
         """
-        self.logger.info("OpenAI'den cevap isteniyor...")
+        self.logger.info("Requesting completion from OpenAI...")
         if image_base64:
             self.logger.info("   - Request includes an image.")
 
+        # The user's content is a list that always includes text.
         user_content = [
             {
                 "type": "text",
@@ -69,14 +71,15 @@ class OpenAIClient:
                     "url": f"data:image/png;base64,{image_base64}"
                 }
             })
+        elif image_base64 and not self.has_vision_capability():
+            self.logger.warning(f"   - Image provided but model '{self.model}' does not support vision. Image will be ignored.")
         
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    # The 'content' is now the list we constructed.
-                    {"role": "user", "content": user_content}
+                    {"role": "user", "content": user_content} # The 'content' is the list we constructed.
                 ],
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
@@ -85,5 +88,5 @@ class OpenAIClient:
             self.logger.info("Successfully received completion.")
             return content.strip() if content else ""
         except Exception as e:
-            self.logger.error(f"OpenAI API çağrısı sırasında bir hata oluştu: {e}")
-            return "Üzgünüm, bir hata oluştu ve şu anda cevap veremiyorum."
+            self.logger.error(f"An error occurred during the OpenAI API call: {e}")
+            return "Sorry, an error occurred and I cannot provide a response at this time."
