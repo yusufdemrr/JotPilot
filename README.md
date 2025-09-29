@@ -39,7 +39,7 @@ Follow these steps to set up and run the project on your local machine.
 1.  **Clone the Repository:**
     ```bash
     git clone [YOUR_PROJECT_URL]
-    cd Jotform_agent 
+    cd JotPilot 
     ```
 
 2.  **Set Up Environment:** It's recommended to use a virtual environment (like venv or Conda).
