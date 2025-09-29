@@ -38,7 +38,7 @@ Follow these steps to set up and run the project on your local machine.
 
 1.  **Clone the Repository:**
     ```bash
-    git clone [YOUR_PROJECT_URL]
+    git clone https://github.com/yusufdemrr/JotPilot.git
     cd JotPilot 
     ```
 
